@@ -31,6 +31,7 @@ class AssessmentPreviewPage extends StatelessWidget {
     final List<dynamic> mcqs = data['mcqs'] ?? [];
     final List<dynamic> shortQs = data['shortQuestions'] ?? [];
     final List<dynamic> longQs = data['longQuestions'] ?? [];
+    final List<dynamic> fillBlanks = data['fillInTheBlanks'] ?? []; // <--- ADD THIS LINE
 
     return Scaffold(
       backgroundColor: context.background,
@@ -102,6 +103,16 @@ class AssessmentPreviewPage extends StatelessWidget {
                 // Note: We pass the raw index (entry.key) and the provider now!
                 (entry) =>
                     _buildMCQCard(entry.key, entry.value, context, provider),
+              ),
+            ],
+
+            // --- Fill in the Blanks Section ---
+            if (fillBlanks.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionHeader("Fill in the Blanks (${fillBlanks.length})"),
+              ...fillBlanks.asMap().entries.map(
+                    (entry) =>
+                    _buildFillBlankCard(entry.key, entry.value, context, provider),
               ),
             ],
 
@@ -480,6 +491,96 @@ class AssessmentPreviewPage extends StatelessWidget {
                   minHeight: 3,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFillBlankCard(
+      int listIndex,
+      Map<String, dynamic> questionData,
+      BuildContext context,
+      AssessmentProvider provider,
+      ) {
+    final bool isRegenerating = provider.isRegenerating(
+      "fillInTheBlanks",
+      listIndex,
+    );
+    final int displayIndex = listIndex + 1;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (child, animation) =>
+          ScaleTransition(scale: animation, child: child),
+      child: isRegenerating
+          ? _buildLoadingCard(context)
+          : Container(
+        key: ValueKey(questionData['question']),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    "$displayIndex. ${questionData['question']}",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  // Calls regenerate on the specific fillInTheBlanks array!
+                  onPressed: () => provider.regenerateSingleItem(
+                    context,
+                    "fillInTheBlanks",
+                    listIndex,
+                  ),
+                  tooltip: "Regenerate Question",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.edit_note,
+                  color: Colors.blueAccent,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Answer: ${questionData['answer']}",
+                    style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontFamily: 'Lato',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

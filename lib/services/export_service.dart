@@ -21,10 +21,16 @@ class ExportService {
           "title": data['title'] ?? "Assessment",
           "marks":
               data['marks'] ??
-              {"mcq_points": 1, "short_points": 3, "long_points": 10},
+              {
+                "mcq_points": 1,
+                "short_points": 3,
+                "long_points": 10,
+                "fib_points": 1,
+              },
           "mcqs": data['mcqs'] ?? [],
           "shortQuestions": data['shortQuestions'] ?? [],
           "longQuestions": data['longQuestions'] ?? [],
+          "fillInTheBlanks": data['fillInTheBlanks'] ?? [],
         },
       };
 
@@ -37,7 +43,6 @@ class ExportService {
       );
 
       if (response.statusCode == 200) {
-
         final bytes = response.bodyBytes;
 
         final title = data['title'] ?? "Assessment";

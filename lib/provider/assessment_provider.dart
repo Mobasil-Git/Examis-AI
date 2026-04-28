@@ -12,18 +12,22 @@ class AssessmentProvider extends ChangeNotifier {
   final int maxFileSizeInBytes = 10 * 1024 * 1024;
 
   List<PlatformFile> get selectedFiles => _selectedFiles;
+
   bool get canAddMoreFiles => _selectedFiles.length < maxFiles;
 
   bool _isLoading = false;
   Map<String, dynamic>? _generatedAssessment;
 
   bool get isLoading => _isLoading;
+
   Map<String, dynamic>? get generatedAssessment => _generatedAssessment;
 
   String _lastDocumentText = "";
   String _lastDifficulty = "Standard";
   final Set<String> _regeneratingItems = {};
-  bool isRegenerating(String type, int index) => _regeneratingItems.contains("${type}_$index");
+
+  bool isRegenerating(String type, int index) =>
+      _regeneratingItems.contains("${type}_$index");
 
   final TextEditingController variationsController = TextEditingController();
   final TextEditingController mcqCountController = TextEditingController();
@@ -32,6 +36,8 @@ class AssessmentProvider extends ChangeNotifier {
   final TextEditingController shortMarksController = TextEditingController();
   final TextEditingController longCountController = TextEditingController();
   final TextEditingController longMarksController = TextEditingController();
+  final fillBlankCountController = TextEditingController();
+  final fillBlankMarksController = TextEditingController();
   List<TextEditingController> cloControllers = [TextEditingController()];
 
   void addClo() {
@@ -54,12 +60,17 @@ class AssessmentProvider extends ChangeNotifier {
 
   Future<void> pickFile(BuildContext context) async {
     if (!canAddMoreFiles) {
-      _showError(context, "You can only upload up to $maxFiles files at a time.");
+      _showError(
+        context,
+        "You can only upload up to $maxFiles files at a time.",
+      );
       return;
     }
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom, allowedExtensions: ['pdf'], allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
       );
 
       if (result != null) {
@@ -87,7 +98,10 @@ class AssessmentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> triggerGeneration(BuildContext context, {required String difficulty}) async {
+  Future<void> triggerGeneration(
+    BuildContext context, {
+    required String difficulty,
+  }) async {
     if (_selectedFiles.isEmpty) {
       _showError(context, "Please upload at least one curriculum file.");
       return;
@@ -96,8 +110,13 @@ class AssessmentProvider extends ChangeNotifier {
     final mcqCount = int.tryParse(mcqCountController.text.trim()) ?? 0;
     final shortCount = int.tryParse(shortCountController.text.trim()) ?? 0;
     final longCount = int.tryParse(longCountController.text.trim()) ?? 0;
+    final fillBlankCount =
+        int.tryParse(fillBlankCountController.text.trim()) ?? 0;
 
-    if (mcqCount == 0 && shortCount == 0 && longCount == 0) {
+    if (mcqCount == 0 &&
+        shortCount == 0 &&
+        longCount == 0 &&
+        fillBlankCount == 0) {
       _showError(context, "Please request at least one type of question.");
       return;
     }
@@ -115,7 +134,11 @@ class AssessmentProvider extends ChangeNotifier {
 
       if (combinedText.trim().isEmpty) {
         _setLoading(false);
-        if (context.mounted) _showError(context, "Could not extract text. PDFs might be image-based.");
+        if (context.mounted)
+          _showError(
+            context,
+            "Could not extract text. PDFs might be image-based.",
+          );
         return;
       }
 
@@ -132,17 +155,31 @@ class AssessmentProvider extends ChangeNotifier {
         mcqCount: mcqCount,
         shortQCount: shortCount,
         longQCount: longCount,
+        fillBlankCount: fillBlankCount,
         activeCLOs: activeCLOs,
       );
+
+      if (_generatedAssessment != null) {
+        _generatedAssessment!['marks'] = {
+          "mcq_points": int.tryParse(mcqMarksController.text.trim()) ?? 1,
+          "short_points": int.tryParse(shortMarksController.text.trim()) ?? 2,
+          "long_points": int.tryParse(longMarksController.text.trim()) ?? 5,
+          "fib_points": int.tryParse(fillBlankMarksController.text.trim()) ?? 1,
+        };
+      }
 
       _setLoading(false);
 
       if (_generatedAssessment != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Assessment Generated Successfully!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("Assessment Generated Successfully!"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
-        if (context.mounted) _showError(context, "AI failed to generate. Please try again.");
+        if (context.mounted)
+          _showError(context, "AI failed to generate. Please try again.");
       }
     } catch (e) {
       _setLoading(false);
@@ -150,7 +187,11 @@ class AssessmentProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> regenerateSingleItem(BuildContext context, String type, int index) async {
+  Future<void> regenerateSingleItem(
+    BuildContext context,
+    String type,
+    int index,
+  ) async {
     if (_lastDocumentText.isEmpty) {
       _showError(context, "Context lost. Please generate a new assessment.");
       return;
@@ -176,10 +217,12 @@ class AssessmentProvider extends ChangeNotifier {
         }
         _generatedAssessment![type][index] = newQuestion;
       } else {
-        if (context.mounted) _showError(context, "Failed to regenerate question.");
+        if (context.mounted)
+          _showError(context, "Failed to regenerate question.");
       }
     } catch (e) {
-      if (context.mounted) _showError(context, "An error occurred during regeneration.");
+      if (context.mounted)
+        _showError(context, "An error occurred during regeneration.");
     }
 
     _regeneratingItems.remove(itemKey);
@@ -188,9 +231,14 @@ class AssessmentProvider extends ChangeNotifier {
 
   void _showError(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 3)),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
+
   void loadPastAssessment(Map<String, dynamic> pastData) {
     _generatedAssessment = pastData;
     notifyListeners();

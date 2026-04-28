@@ -104,6 +104,31 @@ class GenerateSection extends StatelessWidget {
             ),
 
             const SizedBox(height: 16), // Added explicit spacing!
+            // --- Fill in the Blanks ---
+            Row(
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  width: context.widthPercent(0.55),
+                  child: UniversalTextField(
+                    controller: assessmentProvider.fillBlankCountController, // Wired!
+                    labelText: "Fill in the Blanks",
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                SizedBox(
+                  width: context.widthPercent(0.25),
+                  child: UniversalTextField(
+                    controller: assessmentProvider.fillBlankMarksController, // Wired!
+                    labelText: "Marks each",
+                    keyboardType: TextInputType.number,
+                  ),
+                )
+              ],
+            ),
+
+            const SizedBox(height: 16), // Keeps our clean spacing
             // --- Short Questions ---
             Row(
               mainAxisSize: MainAxisSize.max,

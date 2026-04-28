@@ -18,6 +18,7 @@ class GeminiService {
     int mcqCount = 0,
     int shortQCount = 0,
     int longQCount = 0,
+    int fillBlankCount = 0, // <--- NEW
     List<String> activeCLOs = const [],
   }) async {
     String cloPromptSection = "";
@@ -46,7 +47,7 @@ class GeminiService {
       Analyze the following document text and generate a test based strictly on its contents.
       Difficulty level: $difficulty.
 
-      Generate exactly $mcqCount Multiple Choice Questions, $shortQCount Short Answer Questions, and $longQCount Long Essay Questions.
+      Generate exactly $mcqCount Multiple Choice Questions, $fillBlankCount Fill in the Blank Questions, $shortQCount Short Answer Questions, and $longQCount Long Essay Questions.
 
       CRITICAL CONSTRAINT FOR MCQs: The "options" MUST be extremely concise. Keep every single MCQ option strictly between 1 and 4 words maximum. Do not write full sentences for MCQ options.
 
@@ -60,6 +61,12 @@ class GeminiService {
             "question": "The question text here?",
             "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
             "correctAnswer": "The exact text of the correct option"$cloJsonField
+          }
+        ],
+        "fillInTheBlanks": [
+          {
+            "question": "The capital of France is ________.",
+            "answer": "Paris"$cloJsonField
           }
         ],
         "shortQuestions": [
@@ -81,15 +88,38 @@ class GeminiService {
       $documentText
       """
     ''';
+    int maxRetries = 3;
 
-    try {
-      final response = await _model.generateContent([Content.text(prompt)]);
-      if (response.text == null || response.text!.isEmpty) return null;
-      return jsonDecode(response.text!);
-    } catch (e) {
-      print("Gemini Generation Error: $e");
-      return null;
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        print("Gemini API Attempt $attempt of $maxRetries...");
+        final response = await _model.generateContent([Content.text(prompt)]);
+
+        if (response.text == null || response.text!.isEmpty) return null;
+
+        return jsonDecode(response.text!);
+      } catch (e) {
+        print("Gemini Generation Error on attempt $attempt: $e");
+
+        // If it's a 503 or 429 (Too Many Requests) error, we wait and try again
+        if (e.toString().contains('503') || e.toString().contains('429')) {
+          if (attempt == maxRetries) {
+            print("Max retries reached. Failing gracefully.");
+            return null; // Give up after 3 tries so the app doesn't hang forever
+          }
+
+          // Wait for 2 seconds on the first fail, 4 seconds on the second fail...
+          int delaySeconds = attempt * 2;
+          print("Waiting $delaySeconds seconds before retrying...");
+          await Future.delayed(Duration(seconds: delaySeconds));
+        } else {
+          // If it's a different kind of error (like a JSON formatting issue), fail immediately
+          return null;
+        }
+      }
     }
+
+    return null;
   }
 
   Future<Map<String, dynamic>?> regenerateSingleQuestion({
@@ -104,21 +134,24 @@ class GeminiService {
     if (targetClo != null && targetClo.isNotEmpty) {
       cloInstruction =
           "CRITICAL RULE: This new question MUST strictly align with this Course Learning Objective: $targetClo.";
-      cloJsonField =
-          ',\n        "target_clo": "$targetClo"';
+      cloJsonField = ',\n        "target_clo": "$targetClo"';
     }
 
     String formatGuide = "";
     if (questionType == "mcqs") {
-      formatGuide =
-          '''
+      formatGuide = '''
       {
         "question": "New Question?",
         "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
         "correctAnswer": "Correct Option"$cloJsonField
       }
-
-      CRITICAL CONSTRAINT: Keep all MCQ options strictly between 1 and 4 words maximum!
+      ''';
+    } else if (questionType == "fillInTheBlanks") {
+      formatGuide = '''
+      {
+        "question": "The new question with a ________ blank?", 
+        "answer": "The correct word"$cloJsonField
+      }
       ''';
     } else if (questionType == "shortQuestions") {
       formatGuide =

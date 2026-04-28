@@ -23,7 +23,6 @@ class CloInputSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // --- Header Row ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -61,8 +60,6 @@ class CloInputSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-
-          // --- Dynamic List of TextFields ---
           ...provider.cloControllers.asMap().entries.map((entry) {
             final int index = entry.key;
             final TextEditingController controller = entry.value;
@@ -78,7 +75,6 @@ class CloInputSection extends StatelessWidget {
                       hintText: "e.g., Understand lexical analysis",
                     ),
                   ),
-                  // Only show the remove button if there is more than 1 field
                   if (provider.cloControllers.length > 1) ...[
                     const SizedBox(width: 8),
                     IconButton(
@@ -95,7 +91,6 @@ class CloInputSection extends StatelessWidget {
             );
           }),
 
-          // --- Add CLO Button ---
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
