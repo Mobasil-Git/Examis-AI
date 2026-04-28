@@ -15,13 +15,11 @@ class ImageService {
     String userId,
   ) async {
     try {
-      // 1. Pick Image from Gallery
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
       );
-      if (pickedFile == null) return null; // User canceled
+      if (pickedFile == null) return null;
 
-      // 2. Crop Image (Force a square for circular avatars)
       final CroppedFile? croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
@@ -40,9 +38,8 @@ class ImageService {
           ),
         ],
       );
-      if (croppedFile == null) return null; // User canceled crop
+      if (croppedFile == null) return null;
 
-      // 3. Compress Image (Save your Supabase Storage limits!)
       final dir = await getTemporaryDirectory();
       final targetPath =
           '${dir.absolute.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -57,9 +54,8 @@ class ImageService {
           );
       if (compressedFile == null) return null;
 
-      // 4. Upload to Supabase Storage
       final File finalImage = File(compressedFile.path);
-      final String storagePath = '$userId/profile.jpg'; // Folders by User ID
+      final String storagePath = '$userId/profile.jpg';
 
       await _supabase.storage
           .from('avatars')
@@ -68,18 +64,13 @@ class ImageService {
             finalImage,
             fileOptions: const FileOptions(
               upsert: true,
-            ), // Overwrites old picture to save space!
+            ),
           );
 
-      // 5. Get the Public URL
-      // 5. Get the Public URL
       final String publicUrl = _supabase.storage
           .from('avatars')
           .getPublicUrl(storagePath);
 
-      // 6. UPDATE THE DATABASE!
-      // This saves the URL to the 'avatar_url' column we just created.
-      // (Change 'profiles' to your actual table name if it's different!)
       await _supabase
           .from('profiles')
           .update({'avatar_url': publicUrl})

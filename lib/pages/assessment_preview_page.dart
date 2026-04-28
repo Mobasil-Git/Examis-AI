@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:examis_ai/provider/theme_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Added for fetching templates
 import '../services/export_service.dart';
 
 class AssessmentPreviewPage extends StatelessWidget {
@@ -52,68 +53,15 @@ class AssessmentPreviewPage extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              // Export PDF Button
-              Expanded(
-                child: _buildFlatButton(
-                  context,
-                  title: "Export PDF",
-                  icon: Icons.picture_as_pdf_outlined,
-                  color: AppColors.error,
-                  onTap: () async {
-                    final success = await ExportService().exportToPdf(data);
-                    if (!success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Failed to export PDF.",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-
-              const SizedBox(width: 16),
-
-              // Export DOCX Button
-              Expanded(
-                child: _buildFlatButton(
-                  context,
-                  title: "Export Docx",
-                  icon: Icons.description_outlined,
-                  color: Colors.blueAccent,
-                  onTap: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Generating Word Document... 📄"),
-                      ),
-                    );
-
-                    final success = await ExportService().exportToWord(data);
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      if (!success) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              "Failed to export DOCX.",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            backgroundColor: AppColors.error,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ),
-            ],
+          child: _buildFlatButton(
+            context,
+            title: "Export Word Document",
+            icon: Icons.description_outlined,
+            color: Colors.blueAccent,
+            onTap: () {
+              // Open the template selector
+              _showTemplateSelectionBottomSheet(context, data);
+            },
           ),
         ),
       ),
@@ -492,11 +440,12 @@ class AssessmentPreviewPage extends StatelessWidget {
   }
 
   // --- A nice glowing skeleton loader for when a card is regenerating ---
-  // --- A nice glowing skeleton loader for when a card is regenerating ---
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
-      key: const ValueKey("loading"), // Crucial for animation!
-      height: 180, // Made it slightly taller to comfortably fit your asset!
+      key: const ValueKey("loading"),
+      // Crucial for animation!
+      height: 180,
+      // Made it slightly taller to comfortably fit your asset!
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: context.surface,
@@ -507,26 +456,20 @@ class AssessmentPreviewPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
             Lottie.asset(
               'assets/animations/lottie_animations/AI.json',
               height: 60,
             ),
-
-
             SizedBox(height: context.heightPercent(0.016)),
-
             const Text(
               "AI is cooking a new question...",
               style: TextStyle(
-                  color: AppColors.primary,
-                  fontFamily: 'Lato',
-                  fontWeight: FontWeight.w600
+                color: AppColors.primary,
+                fontFamily: 'Lato',
+                fontWeight: FontWeight.w600,
               ),
             ),
-
             const SizedBox(height: 12),
-
             // A sleek, tiny loading bar to keep the "working" feel underneath the text
             SizedBox(
               width: 100,
@@ -577,6 +520,226 @@ class AssessmentPreviewPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  // --- BOTTOM SHEET FOR TEMPLATE SELECTION ---
+  // --- BOTTOM SHEET FOR TEMPLATE SELECTION ---
+  void _showTemplateSelectionBottomSheet(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    // 1. A local variable to track the toggle switch
+    bool showCloTags = false;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.background,
+      isScrollControlled: true,
+      // Prevents list clipping
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext bottomSheetContext) {
+        // 2. Wrap the content in a StatefulBuilder so the toggle can animate
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Select Institute Template",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Choose which header to apply to this exam.",
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontFamily: 'Lato',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ==========================================
+                  // NEW SECTION: OBE / CLO TOGGLE SWITCH
+                  // ==========================================
+                  Container(
+                    decoration: BoxDecoration(
+                      color: context.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: context.border),
+                    ),
+                    child: SwitchListTile(
+                      value: showCloTags,
+                      activeColor: AppColors.primary,
+                      title: Text(
+                        "Include CLO Tags",
+                        style: TextStyle(
+                          color: context.textPrimary,
+                          fontFamily: 'Lato',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Append learning objectives (e.g., [CLO 1]) to the end of each question.",
+                        style: TextStyle(
+                          color: context.textSecondary,
+                          fontFamily: 'Lato',
+                          fontSize: 12,
+                        ),
+                      ),
+                      onChanged: (bool value) {
+                        // Flips the switch inside the bottom sheet
+                        setSheetState(() {
+                          showCloTags = value;
+                        });
+                      },
+                    ),
+                  ),
+
+                  // ==========================================
+                  const SizedBox(height: 16),
+
+                  // Fetch the templates from Supabase
+                  Flexible(
+                    child: FutureBuilder<List<Map<String, dynamic>>>(
+                      future: Supabase.instance.client
+                          .from('institutes')
+                          .select()
+                          .order('created_at', ascending: false),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Center(
+                              child: Text(
+                                "Error: ${snapshot.error}",
+                                style: TextStyle(color: context.error),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final institutes = snapshot.data ?? [];
+
+                        if (institutes.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32.0),
+                            child: Center(
+                              child: Text(
+                                "No templates found.\nPlease add an institute in your Profile.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: context.textSecondary,
+                                  fontFamily: 'Lato',
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Build the list of templates
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: institutes.length,
+                          itemBuilder: (context, index) {
+                            final institute = institutes[index];
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.business,
+                                color: AppColors.primary,
+                              ),
+                              title: Text(
+                                institute['institute_name'],
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontFamily: 'Lato',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              tileColor: context.surface,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              onTap: () async {
+                                // 1. Close the bottom sheet
+                                Navigator.pop(bottomSheetContext);
+
+                                // 2. Show the loading snackbar
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Generating Word Document... 📄",
+                                    ),
+                                  ),
+                                );
+
+                                // 3. TRIGGER THE EXPORT WITH THE NEW TOGGLE VALUE!
+                                final String selectedUrl =
+                                    institute['template_url'];
+                                final success = await ExportService()
+                                    .exportToWord(
+                                      data,
+                                      selectedUrl,
+                                      showCloTags,
+                                    );
+
+                                // 4. Handle Success/Fail
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).hideCurrentSnackBar();
+                                  if (!success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          "Failed to export DOCX.",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                        backgroundColor: context.error,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

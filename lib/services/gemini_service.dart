@@ -18,8 +18,30 @@ class GeminiService {
     int mcqCount = 0,
     int shortQCount = 0,
     int longQCount = 0,
+    List<String> activeCLOs = const [],
   }) async {
-    final prompt = '''
+    String cloPromptSection = "";
+    String cloJsonField = "";
+
+    if (activeCLOs.isNotEmpty) {
+      cloPromptSection =
+          """
+      COURSE LEARNING OBJECTIVES (CLOs):
+      ${activeCLOs.asMap().entries.map((e) => "CLO ${e.key + 1}: ${e.value}").join('\n')}
+
+      CRITICAL CLO DISTRIBUTION RULES:
+      You are strictly required to map EVERY generated question to one of the CLOs listed above. 
+      1. Uniform Coverage: For each section (MCQs, Short Questions, Long Questions), you MUST generate one question per CLO before you are allowed to reuse a CLO. 
+      2. The Overflow Rule: If a section requires more questions than available CLOs (e.g., 4 questions, 3 CLOs), map the first 3 questions to CLO 1, CLO 2, and CLO 3 respectively. Assign the 4th question to the most fundamentally important CLO.
+      3. The Distinct Rule (No Duplication): If a section requires fewer questions than available CLOs (e.g., 2 Long Questions, 3 CLOs), you MUST pick distinct CLOs. Never assign the same CLO to two questions in the same section unless you have already used every single CLO at least once in that section.
+      4. JSON Output: Every single question object in your JSON response MUST include a "target_clo" key containing the exact CLO identifier (e.g., "CLO 1").
+      """;
+
+      cloJsonField = ',\n            "target_clo": "CLO 1"';
+    }
+
+    final prompt =
+        '''
       You are an expert educational assessment generator.
       Analyze the following document text and generate a test based strictly on its contents.
       Difficulty level: $difficulty.
@@ -28,6 +50,8 @@ class GeminiService {
 
       CRITICAL CONSTRAINT FOR MCQs: The "options" MUST be extremely concise. Keep every single MCQ option strictly between 1 and 4 words maximum. Do not write full sentences for MCQ options.
 
+      $cloPromptSection
+
       You must return the data strictly in the following JSON structure:
       {
         "title": "A short, relevant title for this assessment",
@@ -35,19 +59,19 @@ class GeminiService {
           {
             "question": "The question text here?",
             "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
-            "correctAnswer": "The exact text of the correct option"
+            "correctAnswer": "The exact text of the correct option"$cloJsonField
           }
         ],
         "shortQuestions": [
           {
             "question": "The short answer question text?",
-            "idealAnswer": "A brief, accurate ideal answer based on the text"
+            "idealAnswer": "A brief, accurate ideal answer based on the text"$cloJsonField
           }
         ],
         "longQuestions": [
           {
             "question": "The long essay question text?",
-            "gradingRubric": "A brief guide on what a correct answer should include"
+            "gradingRubric": "A brief guide on what a correct answer should include"$cloJsonField
           }
         ]
       }
@@ -72,32 +96,56 @@ class GeminiService {
     required String documentText,
     required String difficulty,
     required String questionType,
+    String? targetClo,
   }) async {
+    String cloInstruction = "";
+    String cloJsonField = "";
+
+    if (targetClo != null && targetClo.isNotEmpty) {
+      cloInstruction =
+          "CRITICAL RULE: This new question MUST strictly align with this Course Learning Objective: $targetClo.";
+      cloJsonField =
+          ',\n        "target_clo": "$targetClo"';
+    }
+
     String formatGuide = "";
     if (questionType == "mcqs") {
-      formatGuide = '''
+      formatGuide =
+          '''
       {
         "question": "New Question?",
         "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
-        "correctAnswer": "Correct Option"
+        "correctAnswer": "Correct Option"$cloJsonField
       }
 
       CRITICAL CONSTRAINT: Keep all MCQ options strictly between 1 and 4 words maximum!
       ''';
     } else if (questionType == "shortQuestions") {
       formatGuide =
-      '{"question": "New short question?", "idealAnswer": "Ideal answer text"}';
+          '''
+      {
+        "question": "New short question?", 
+        "idealAnswer": "Ideal answer text"$cloJsonField
+      }
+      ''';
     } else {
       formatGuide =
-      '{"question": "New long question?", "gradingRubric": "Rubric text"}';
+          '''
+      {
+        "question": "New long question?", 
+        "gradingRubric": "Rubric text"$cloJsonField
+      }
+      ''';
     }
 
-    final prompt = '''
+    final prompt =
+        '''
       You are an expert educational assessment generator.
       Generate EXACTLY ONE new, unique question based on the document below.
       Difficulty level: $difficulty.
 
       Ensure it is completely different from obvious questions.
+      $cloInstruction
 
       Return ONLY a single JSON object (not a list) matching this exact structure:
       $formatGuide

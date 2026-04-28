@@ -9,7 +9,7 @@ class AssessmentProvider extends ChangeNotifier {
 
   final List<PlatformFile> _selectedFiles = [];
   final int maxFiles = 3;
-  final int maxFileSizeInBytes = 10 * 1024 * 1024; // 10 MB
+  final int maxFileSizeInBytes = 10 * 1024 * 1024;
 
   List<PlatformFile> get selectedFiles => _selectedFiles;
   bool get canAddMoreFiles => _selectedFiles.length < maxFiles;
@@ -20,11 +20,8 @@ class AssessmentProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   Map<String, dynamic>? get generatedAssessment => _generatedAssessment;
 
-  // --- NEW MEMORY VARIABLES ---
   String _lastDocumentText = "";
   String _lastDifficulty = "Standard";
-
-  // Tracks which specific card is spinning! e.g., {"mcqs_0", "shortQuestions_2"}
   final Set<String> _regeneratingItems = {};
   bool isRegenerating(String type, int index) => _regeneratingItems.contains("${type}_$index");
 
@@ -35,6 +32,20 @@ class AssessmentProvider extends ChangeNotifier {
   final TextEditingController shortMarksController = TextEditingController();
   final TextEditingController longCountController = TextEditingController();
   final TextEditingController longMarksController = TextEditingController();
+  List<TextEditingController> cloControllers = [TextEditingController()];
+
+  void addClo() {
+    cloControllers.add(TextEditingController());
+    notifyListeners();
+  }
+
+  void removeClo(int index) {
+    if (cloControllers.length > 1) {
+      cloControllers[index].dispose();
+      cloControllers.removeAt(index);
+      notifyListeners();
+    }
+  }
 
   void _setLoading(bool value) {
     _isLoading = value;
@@ -108,7 +119,10 @@ class AssessmentProvider extends ChangeNotifier {
         return;
       }
 
-      // SAVE TO MEMORY SO WE CAN USE IT FOR REGENERATION LATER
+      List<String> activeCLOs = cloControllers
+          .map((controller) => controller.text.trim())
+          .where((text) => text.isNotEmpty)
+          .toList();
       _lastDocumentText = combinedText;
       _lastDifficulty = difficulty;
 
@@ -118,6 +132,7 @@ class AssessmentProvider extends ChangeNotifier {
         mcqCount: mcqCount,
         shortQCount: shortCount,
         longQCount: longCount,
+        activeCLOs: activeCLOs,
       );
 
       _setLoading(false);
@@ -135,28 +150,30 @@ class AssessmentProvider extends ChangeNotifier {
     }
   }
 
-  // --- NEW REGENERATION METHOD ---
   Future<void> regenerateSingleItem(BuildContext context, String type, int index) async {
     if (_lastDocumentText.isEmpty) {
       _showError(context, "Context lost. Please generate a new assessment.");
       return;
     }
-
-    // 1. Turn on the spinner JUST for this specific item
     final itemKey = "${type}_$index";
     _regeneratingItems.add(itemKey);
     notifyListeners();
 
     try {
-      // 2. Fetch the new question
+      final oldQuestion = _generatedAssessment?[type][index];
+      final String? existingClo = oldQuestion?['target_clo'];
+
       final newQuestion = await _geminiService.regenerateSingleQuestion(
         documentText: _lastDocumentText,
         difficulty: _lastDifficulty,
         questionType: type,
+        targetClo: existingClo,
       );
 
-      // 3. Swap it out!
       if (newQuestion != null && _generatedAssessment != null) {
+        if (existingClo != null) {
+          newQuestion['target_clo'] = existingClo;
+        }
         _generatedAssessment![type][index] = newQuestion;
       } else {
         if (context.mounted) _showError(context, "Failed to regenerate question.");
@@ -165,7 +182,6 @@ class AssessmentProvider extends ChangeNotifier {
       if (context.mounted) _showError(context, "An error occurred during regeneration.");
     }
 
-    // 4. Turn off the spinner
     _regeneratingItems.remove(itemKey);
     notifyListeners();
   }
@@ -175,7 +191,6 @@ class AssessmentProvider extends ChangeNotifier {
       SnackBar(content: Text(message), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 3)),
     );
   }
-
   void loadPastAssessment(Map<String, dynamic> pastData) {
     _generatedAssessment = pastData;
     notifyListeners();
@@ -195,6 +210,7 @@ class AssessmentProvider extends ChangeNotifier {
     shortMarksController.clear();
     longCountController.clear();
     longMarksController.clear();
+    cloControllers.clear();
     notifyListeners();
   }
 

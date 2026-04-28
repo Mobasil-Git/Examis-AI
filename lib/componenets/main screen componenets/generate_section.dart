@@ -14,7 +14,6 @@ class GenerateSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     final assessmentProvider = context.read<AssessmentProvider>();
 
     return Container(
@@ -23,14 +22,16 @@ class GenerateSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: context.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(left: 12, right: 12),
+      // Added a bit more vertical padding at the top and bottom
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: SingleChildScrollView(
+        // Added this so it scrolls gracefully if it gets too tall
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
+          // Changed to min so it wraps its content
           children: [
-
+            // --- Header Row ---
             Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -46,8 +47,10 @@ class GenerateSection extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  height: context.heightPercent(0.035),
-                  width: context.widthPercent(0.15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(50),
                     color: AppColors.primary.withAlpha(35),
@@ -67,20 +70,24 @@ class GenerateSection extends StatelessWidget {
               ],
             ),
 
+            const SizedBox(height: 20), // Added explicit spacing!
+            // --- Variations ---
             UniversalTextField(
-              controller: assessmentProvider.variationsController, // Wired!
+              controller: assessmentProvider.variationsController,
               labelText: "Total variations (e.g. 3)",
               keyboardType: TextInputType.number,
             ),
 
+            const SizedBox(height: 16), // Added explicit spacing!
+            // --- MCQs ---
             Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: context.widthPercent(0.58),
+                  width: context.widthPercent(0.55),
                   child: UniversalTextField(
-                    controller: assessmentProvider.mcqCountController, // Wired!
+                    controller: assessmentProvider.mcqCountController,
                     labelText: "Number of MCQs",
                     keyboardType: TextInputType.number,
                   ),
@@ -88,22 +95,24 @@ class GenerateSection extends StatelessWidget {
                 SizedBox(
                   width: context.widthPercent(0.25),
                   child: UniversalTextField(
-                    controller: assessmentProvider.mcqMarksController, // Wired!
+                    controller: assessmentProvider.mcqMarksController,
                     labelText: "Marks each",
                     keyboardType: TextInputType.number,
                   ),
-                )
+                ),
               ],
             ),
 
+            const SizedBox(height: 16), // Added explicit spacing!
+            // --- Short Questions ---
             Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: context.widthPercent(0.58),
+                  width: context.widthPercent(0.55),
                   child: UniversalTextField(
-                    controller: assessmentProvider.shortCountController, // Wired!
+                    controller: assessmentProvider.shortCountController,
                     labelText: "Short Questions",
                     keyboardType: TextInputType.number,
                   ),
@@ -111,22 +120,24 @@ class GenerateSection extends StatelessWidget {
                 SizedBox(
                   width: context.widthPercent(0.25),
                   child: UniversalTextField(
-                    controller: assessmentProvider.shortMarksController, // Wired!
+                    controller: assessmentProvider.shortMarksController,
                     labelText: "Marks each",
                     keyboardType: TextInputType.number,
                   ),
-                )
+                ),
               ],
             ),
 
+            const SizedBox(height: 16), // Added explicit spacing!
+            // --- Long Questions ---
             Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: context.widthPercent(0.58),
+                  width: context.widthPercent(0.55),
                   child: UniversalTextField(
-                    controller: assessmentProvider.longCountController, // Wired!
+                    controller: assessmentProvider.longCountController,
                     labelText: "Long Questions",
                     keyboardType: TextInputType.number,
                   ),
@@ -134,77 +145,91 @@ class GenerateSection extends StatelessWidget {
                 SizedBox(
                   width: context.widthPercent(0.25),
                   child: UniversalTextField(
-                    controller: assessmentProvider.longMarksController, // Wired!
+                    controller: assessmentProvider.longMarksController,
                     labelText: "Marks each",
                     keyboardType: TextInputType.number,
                   ),
-                )
+                ),
               ],
             ),
 
+            const SizedBox(height: 24), // Extra space before the button!
+            // --- Generate Button ---
             Consumer<AssessmentProvider>(
               builder: (context, provider, child) {
                 return GestureDetector(
                   onTap: provider.isLoading
                       ? null
                       : () async {
+                          FocusScope.of(context).unfocus();
 
-                    FocusScope.of(context).unfocus();
+                          final prefs = await SharedPreferences.getInstance();
+                          final String difficulty =
+                              prefs.getString('selectedDifficulty') ?? "Medium";
+                          await provider.triggerGeneration(
+                            context,
+                            difficulty: difficulty,
+                          );
 
-                    final prefs = await SharedPreferences.getInstance();
-                    final String difficulty = prefs.getString('selectedDifficulty') ?? "Medium";
-                    await provider.triggerGeneration(context, difficulty: difficulty);
+                          if (provider.generatedAssessment != null &&
+                              context.mounted) {
+                            await context
+                                .read<HistoryProvider>()
+                                .saveAssessment(provider.generatedAssessment!);
 
-                    if (provider.generatedAssessment != null && context.mounted) {
-
-                      await context.read<HistoryProvider>().saveAssessment(provider.generatedAssessment!);
-
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AssessmentPreviewPage()),
-                      );
-                    }
-                  },
+                            if (!context.mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AssessmentPreviewPage(),
+                              ),
+                            );
+                          }
+                        },
                   child: Container(
-                    height: context.heightPercent(0.06),
+                    height: 50,
+                    // Changed from heightPercent to a fixed 50px so it doesn't squish
                     width: context.widthPercent(0.4),
                     decoration: BoxDecoration(
                       color: provider.isLoading
-                          ? (context.isDarkMode ? context.surface.withAlpha(150) : context.primary.withAlpha(150))
-                          : (context.isDarkMode ? context.background : context.primary),
+                          ? (context.isDarkMode
+                                ? context.surface.withAlpha(150)
+                                : context.primary.withAlpha(150))
+                          : (context.isDarkMode
+                                ? context.background
+                                : context.primary),
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: provider.isLoading
                           ? const [
-                        SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      ]
+                              SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                            ]
                           : const [
-                        Icon(
-                          Icons.auto_awesome,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          "Generate",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Lato',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
+                              Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Generate",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: 'Lato',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
                     ),
                   ),
                 );

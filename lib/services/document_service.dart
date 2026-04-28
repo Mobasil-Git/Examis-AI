@@ -6,7 +6,9 @@ class DocumentService {
   Future<String?> extractTextFromPDF(String filePath) async {
     try {
       File file = File(filePath);
-      final PdfDocument document = PdfDocument(inputBytes: await file.readAsBytes());
+      final PdfDocument document = PdfDocument(
+        inputBytes: await file.readAsBytes(),
+      );
       String extractedText = PdfTextExtractor(document).extractText();
       document.dispose();
 

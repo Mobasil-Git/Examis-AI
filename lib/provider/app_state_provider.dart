@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AppStateProvider extends ChangeNotifier {
   bool _hasSeenOnboarding = false;
-  bool _isLoading = true; // Used to show a loading state while checking preferences
+  bool _isLoading = true;
 
   bool get hasSeenOnboarding => _hasSeenOnboarding;
   bool get isLoading => _isLoading;
@@ -14,7 +14,6 @@ class AppStateProvider extends ChangeNotifier {
 
   Future<void> _checkOnboardingStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    // If 'hasSeenOnboarding' doesn't exist, it defaults to false
     _hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
     _isLoading = false;
     notifyListeners();

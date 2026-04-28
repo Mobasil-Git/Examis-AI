@@ -1,4 +1,5 @@
 import 'package:examis_ai/componenets/universal%20components/universal_text_field.dart';
+import 'package:examis_ai/componenets/widget/create_institute_form.dart';
 import 'package:examis_ai/componenets/widget/profile_picture_widget.dart';
 import 'package:examis_ai/pages/auth/login_page.dart';
 import 'package:examis_ai/provider/auth_provider.dart';
@@ -7,6 +8,8 @@ import 'package:examis_ai/theming/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -94,7 +97,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       backgroundColor: context.background,
       appBar: AppBar(
-        backgroundColor: themeProvider.isDarkMode ? context.surface : AppColors.primary,
+        backgroundColor: themeProvider.isDarkMode
+            ? context.surface
+            : AppColors.primary,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -185,7 +190,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             const SizedBox(height: 40),
 
             // --- SAVE CHANGES BUTTON ---
-            // --- SAVE CHANGES BUTTON ---
             GestureDetector(
               onTap: () async {
                 FocusScope.of(context).unfocus();
@@ -200,12 +204,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   return;
                 }
 
-                final success = await context
-                    .read<AuthProvider>()
-                    .updateProfile(
+                final success = await context.read<AuthProvider>().updateProfile(
                   context,
                   newName: newName,
-                  newPassword: newPassword, // Pass the password (might be empty, which is fine)
+                  newPassword:
+                      newPassword, // Pass the password (might be empty, which is fine)
                 );
 
                 if (success && context.mounted) {
@@ -221,7 +224,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     // 2. Show a specific security message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("Password changed successfully! Please log in again."),
+                        content: Text(
+                          "Password changed successfully! Please log in again.",
+                        ),
                         backgroundColor: AppColors.success,
                       ),
                     );
@@ -230,7 +235,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginPage()),
-                          (route) => false,
+                      (route) => false,
                     );
                   } else {
                     // They ONLY updated their name. Just show a normal success message and stay on the page.
@@ -253,28 +258,66 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 child: Center(
                   child: authProvider.isLoading
                       ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  )
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
                       : const Text(
-                    "Save Changes",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Lato',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                          "Save Changes",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Lato',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ),
             ),
 
+            // ==========================================
+            // NEW SECTION: INSTITUTE TEMPLATE UPLOAD
+            // ==========================================
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Divider(color: context.border),
+            ),
+
+            Text(
+              "Institute Templates",
+              style: TextStyle(
+                color: context.textPrimary,
+                fontFamily: 'Lato',
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Upload custom Word document headers for your generated exams.",
+              style: TextStyle(
+                color: context.textSecondary,
+                fontFamily: 'Lato',
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // The widget we built to handle the upload to Storage & Database
+            CreateInstituteForm(
+              onSuccess: () {
+                // You can add logic here if you want to update the UI
+                // after a successful upload, but the widget handles its own snackbar.
+              },
+            ),
+            // ==========================================
+
+            // --- DANGER ZONE ---
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
               child: Divider(color: context.border),
             ),
 
@@ -323,6 +366,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 32), // Extra padding at the bottom
           ],
         ),
       ),

@@ -5,8 +5,8 @@ import 'package:examis_ai/provider/theme_provider.dart';
 import 'package:examis_ai/theming/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert'; // Required to convert your history into a JSON file
-import 'package:examis_ai/services/google_drive_service.dart'; // Adjust path if you named the folder differently
+import 'dart:convert';
+import 'package:examis_ai/services/google_drive_service.dart';
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -39,7 +39,6 @@ class HistoryPage extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. THE GOOGLE DRIVE BACKUP SECTION ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -79,28 +78,38 @@ class HistoryPage extends StatelessWidget {
                         if (historyList.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("No assessments to backup yet! Generate some first."),
+                              content: Text(
+                                "No assessments to backup yet! Generate some first.",
+                              ),
                               backgroundColor: Colors.orange,
                             ),
                           );
                           return;
                         }
-
-                        // 3. Show a "loading" message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Backing up to Google Drive... Please wait ☁️"),
-                            duration: Duration(seconds: 3), // Gives it time to upload
+                            content: Text(
+                              "Backing up to Google Drive... Please wait ☁️",
+                            ),
+                            duration: Duration(
+                              seconds: 3,
+                            ),
                           ),
                         );
 
                         // 4. Format the data into a beautiful, readable JSON string
                         // Using JsonEncoder with indents makes the file human-readable if they open it!
-                        final String jsonContent = const JsonEncoder.withIndent('  ').convert(historyList);
+                        final String jsonContent = const JsonEncoder.withIndent(
+                          '  ',
+                        ).convert(historyList);
 
                         // Create a unique filename based on today's date
-                        final String dateString = DateTime.now().toIso8601String().split('T').first;
-                        final String fileName = "Examis_AI_Backup_$dateString.json";
+                        final String dateString = DateTime.now()
+                            .toIso8601String()
+                            .split('T')
+                            .first;
+                        final String fileName =
+                            "Examis_AI_Backup_$dateString.json";
 
                         // 5. Call the Drive Service!
                         final driveService = GoogleDriveService();
@@ -109,9 +118,7 @@ class HistoryPage extends StatelessWidget {
                           fileContent: jsonContent,
                         );
 
-                        // 6. Show the final result
                         if (context.mounted) {
-                          // Hide the "loading" snackbar instantly
                           ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -121,7 +128,9 @@ class HistoryPage extends StatelessWidget {
                                     ? "Backup Successful! 🚀 Saved to 'Examis AI' folder."
                                     : "Backup Failed. Please ensure you logged in with Google.",
                               ),
-                              backgroundColor: success ? AppColors.success : AppColors.error,
+                              backgroundColor: success
+                                  ? AppColors.success
+                                  : AppColors.error,
                             ),
                           );
                         }
