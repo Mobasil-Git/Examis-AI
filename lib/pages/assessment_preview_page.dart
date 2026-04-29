@@ -31,7 +31,8 @@ class AssessmentPreviewPage extends StatelessWidget {
     final List<dynamic> mcqs = data['mcqs'] ?? [];
     final List<dynamic> shortQs = data['shortQuestions'] ?? [];
     final List<dynamic> longQs = data['longQuestions'] ?? [];
-    final List<dynamic> fillBlanks = data['fillInTheBlanks'] ?? []; // <--- ADD THIS LINE
+    final List<dynamic> fillBlanks = data['fillInTheBlanks'] ?? [];
+    final List<dynamic> scenarios = data['custom_scenarios'] ?? [];
 
     return Scaffold(
       backgroundColor: context.background,
@@ -96,6 +97,47 @@ class AssessmentPreviewPage extends StatelessWidget {
               child: Divider(color: context.border),
             ),
 
+            // --- Scenarios / Case Studies Section ---
+            if (scenarios.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionHeader("Scenarios & Code Blocks"),
+              ...scenarios.asMap().entries.map((entry) {
+                int index = entry.key + 1;
+                Map<String, dynamic> scData = entry.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withAlpha(50)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Scenario $index (${scData['marks']} Marks)",
+                        style: TextStyle(
+                          color: context.textPrimary,
+                          fontFamily: 'Lato',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        scData['text'].toString(),
+                        style: TextStyle(
+                          color: context.textSecondary,
+                          fontFamily: 'monospace', // Great for code!
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
             // --- Multiple Choice Section ---
             if (mcqs.isNotEmpty) ...[
               _buildSectionHeader("Multiple Choice (${mcqs.length})"),

@@ -2,10 +2,87 @@ import 'package:examis_ai/services/document_service.dart';
 import 'package:examis_ai/services/gemini_service.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class AssessmentProvider extends ChangeNotifier {
   final _documentService = DocumentService();
   final _geminiService = GeminiService();
+
+  // --- NEW: Paper Category State ---
+  String selectedPaperCategory = 'Theory Based';
+  // --- UPGRADED: Custom Scenario State ---
+  bool letAIGenerateScenario = true;
+
+  // Lists to hold multiple scenarios and their specific marks
+  List<TextEditingController> scenarioTextControllers = [TextEditingController()];
+  List<TextEditingController> scenarioMarksControllers = [TextEditingController()];
+
+  // --- NEW: Camera/CLO Extraction State ---
+  bool isExtractingCLOs = false;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> scanCLOsFromImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(source: source, imageQuality: 80); // 80 quality saves API upload time
+
+      if (image == null) return; // User canceled the picker
+
+      isExtractingCLOs = true;
+      notifyListeners();
+
+      final extractedCLOs = await _geminiService.extractCLOsFromImage(File(image.path));
+
+      if (extractedCLOs.isNotEmpty) {
+        // Clear existing empty boxes
+        if (cloControllers.length == 1 && cloControllers[0].text.isEmpty) {
+          cloControllers.clear();
+        }
+
+        // Add all the newly extracted CLOs!
+        for (String clo in extractedCLOs) {
+          cloControllers.add(TextEditingController(text: clo));
+        }
+      }
+
+    } catch (e) {
+      print("Error scanning CLOs: $e");
+    } finally {
+      isExtractingCLOs = false;
+      notifyListeners();
+    }
+  }
+
+  void toggleAIGenerateScenario(bool? value) {
+    if (value != null) {
+      letAIGenerateScenario = value;
+      notifyListeners();
+    }
+  }
+
+  void addCustomScenario() {
+    scenarioTextControllers.add(TextEditingController());
+    scenarioMarksControllers.add(TextEditingController());
+    notifyListeners();
+  }
+
+  void removeCustomScenario(int index) {
+    if (scenarioTextControllers.length > 1) {
+      scenarioTextControllers[index].dispose();
+      scenarioMarksControllers[index].dispose();
+      scenarioTextControllers.removeAt(index);
+      scenarioMarksControllers.removeAt(index);
+      notifyListeners();
+    }
+  }
+  void updatePaperCategory(String? newValue) {
+    if (newValue != null) {
+      selectedPaperCategory = newValue;
+      notifyListeners();
+    }
+  }
+
+  String _lastPaperCategory = 'Theory Based'; // For regeneration memory!
 
   final List<PlatformFile> _selectedFiles = [];
   final int maxFiles = 3;
@@ -99,9 +176,15 @@ class AssessmentProvider extends ChangeNotifier {
   }
 
   Future<void> triggerGeneration(
-    BuildContext context, {
-    required String difficulty,
-  }) async {
+      BuildContext context, {
+        required String difficulty,
+      }) async {
+
+    // ==========================================
+    // 👇 ADD THIS LINE TO KILL THE GHOST STATE 👇
+    // ==========================================
+    _generatedAssessment = null;
+
     if (_selectedFiles.isEmpty) {
       _showError(context, "Please upload at least one curriculum file.");
       return;
@@ -110,8 +193,7 @@ class AssessmentProvider extends ChangeNotifier {
     final mcqCount = int.tryParse(mcqCountController.text.trim()) ?? 0;
     final shortCount = int.tryParse(shortCountController.text.trim()) ?? 0;
     final longCount = int.tryParse(longCountController.text.trim()) ?? 0;
-    final fillBlankCount =
-        int.tryParse(fillBlankCountController.text.trim()) ?? 0;
+    final fillBlankCount = int.tryParse(fillBlankCountController.text.trim()) ?? 0;
 
     if (mcqCount == 0 &&
         shortCount == 0 &&
@@ -146,26 +228,48 @@ class AssessmentProvider extends ChangeNotifier {
           .map((controller) => controller.text.trim())
           .where((text) => text.isNotEmpty)
           .toList();
+      // SAVE TO MEMORY SO WE CAN USE IT FOR REGENERATION LATER
       _lastDocumentText = combinedText;
       _lastDifficulty = difficulty;
+      _lastPaperCategory = selectedPaperCategory;
+
+      // NEW: Extract custom scenarios and their marks into a list of maps
+      List<Map<String, dynamic>> customScenarios = [];
+
+      for (int i = 0; i < scenarioTextControllers.length; i++) {
+        String text = scenarioTextControllers[i].text.trim();
+        String marksText = scenarioMarksControllers[i].text.trim();
+
+        if (text.isNotEmpty) {
+          customScenarios.add({
+            "text": text,
+            "marks": int.tryParse(marksText) ?? 0 // <--- Safely parsed to an Integer!
+          });
+        }
+      }
 
       _generatedAssessment = await _geminiService.generateAssessment(
         documentText: combinedText,
         difficulty: difficulty,
+        paperCategory: selectedPaperCategory,
         mcqCount: mcqCount,
         shortQCount: shortCount,
         longQCount: longCount,
         fillBlankCount: fillBlankCount,
         activeCLOs: activeCLOs,
+        letAIGenerateScenario: letAIGenerateScenario,
+        customScenarios: customScenarios, // <--- Passed the new list!
       );
 
       if (_generatedAssessment != null) {
+        // 1. Inject the marks
         _generatedAssessment!['marks'] = {
           "mcq_points": int.tryParse(mcqMarksController.text.trim()) ?? 1,
-          "short_points": int.tryParse(shortMarksController.text.trim()) ?? 2,
+          "short_points": int.tryParse(shortMarksController.text.trim()) ?? 3,
           "long_points": int.tryParse(longMarksController.text.trim()) ?? 5,
           "fib_points": int.tryParse(fillBlankMarksController.text.trim()) ?? 1,
         };
+
       }
 
       _setLoading(false);
@@ -208,6 +312,7 @@ class AssessmentProvider extends ChangeNotifier {
         documentText: _lastDocumentText,
         difficulty: _lastDifficulty,
         questionType: type,
+        paperCategory: _lastPaperCategory,
         targetClo: existingClo,
       );
 

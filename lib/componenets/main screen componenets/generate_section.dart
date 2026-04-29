@@ -14,7 +14,7 @@ class GenerateSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final assessmentProvider = context.read<AssessmentProvider>();
+    final assessmentProvider = context.watch<AssessmentProvider>();
 
     return Container(
       decoration: BoxDecoration(
@@ -70,7 +70,249 @@ class GenerateSection extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 20), // Added explicit spacing!
+            const SizedBox(height: 20),
+            // --- Paper Category Dropdown ---
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section Title
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    "Exam Mode & Complexity",
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontFamily: "Lato",
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+
+                // The Main Control Card
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: context.background,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withAlpha(100),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // --- The Dropdown Header ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: assessmentProvider.selectedPaperCategory,
+                            isExpanded: true,
+                            dropdownColor: context.surface,
+                            icon: const Icon(
+                              Icons.tune_rounded,
+                              color: AppColors.primary,
+                            ),
+                            style: TextStyle(
+                              color: context.textPrimary,
+                              fontFamily: 'Lato',
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            items:
+                                [
+                                  'Theory Based',
+                                  'Theory + Code/Scenario',
+                                  'Strictly Code/Scenario',
+                                ].map((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          value == 'Theory Based'
+                                              ? Icons.menu_book_rounded
+                                              : value ==
+                                                    'Theory + Code/Scenario'
+                                              ? Icons.account_tree_rounded
+                                              : Icons.code_rounded,
+                                          color: AppColors.primary,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(value),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                            onChanged: assessmentProvider.updatePaperCategory,
+                          ),
+                        ),
+                      ),
+
+                      // --- The Smooth Expanding Settings Area ---
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child:
+                            assessmentProvider.selectedPaperCategory ==
+                                'Theory Based'
+                            ? const SizedBox.shrink() // Hidden when Theory is selected
+                            : Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withAlpha(15),
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: AppColors.primary.withAlpha(30),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  borderRadius: const BorderRadius.vertical(
+                                    bottom: Radius.circular(15),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Premium Switch Tile instead of a Checkbox
+                                    SwitchListTile(
+                                      title: Text(
+                                        "Auto-Generate Scenarios",
+                                        style: TextStyle(
+                                          color: context.textPrimary,
+                                          fontFamily: 'Lato',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        "Let AI invent scenarios based on notes",
+                                        style: TextStyle(
+                                          color: context.textSecondary,
+                                          fontFamily: 'Lato',
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      value: assessmentProvider
+                                          .letAIGenerateScenario,
+                                      onChanged: assessmentProvider
+                                          .toggleAIGenerateScenario,
+                                      activeColor: AppColors.primary,
+                                      activeTrackColor: AppColors.primary
+                                          .withAlpha(50),
+                                    ),
+
+                                    // Dynamic Custom Scenario List
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 16,
+                                        right: 16,
+                                        bottom: 16,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          ...assessmentProvider.scenarioTextControllers.asMap().entries.map((
+                                            entry,
+                                          ) {
+                                            int index = entry.key;
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 12.0,
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: UniversalTextField(
+                                                      controller: assessmentProvider
+                                                          .scenarioTextControllers[index],
+                                                      // 👇 DYNAMIC LABEL 👇
+                                                      labelText:
+                                                          assessmentProvider
+                                                              .letAIGenerateScenario
+                                                          ? "AI Hint (e.g., 'C++ code with errors')"
+                                                          : "Paste Exact Scenario / Code",
+                                                      maxLines: 3,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    flex: 1,
+                                                    child: UniversalTextField(
+                                                      controller: assessmentProvider
+                                                          .scenarioMarksControllers[index],
+                                                      labelText: "Marks",
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                    ),
+                                                  ),
+                                                  if (assessmentProvider
+                                                          .scenarioTextControllers
+                                                          .length >
+                                                      1)
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        Icons.remove_circle,
+                                                        color: context.error
+                                                            .withAlpha(200),
+                                                      ),
+                                                      onPressed: () =>
+                                                          assessmentProvider
+                                                              .removeCustomScenario(
+                                                                index,
+                                                              ),
+                                                    ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                          const SizedBox(height: 12),
+                                          // Sleek Outlined Button
+                                          OutlinedButton.icon(
+                                            onPressed: assessmentProvider
+                                                .addCustomScenario,
+                                            icon: const Icon(
+                                              Icons.add,
+                                              size: 18,
+                                            ),
+                                            label: const Text("Add Another"),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  AppColors.primary,
+                                              side: BorderSide(
+                                                color: AppColors.primary
+                                                    .withAlpha(100),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20), // Spacing before the "Variations" box
+
+            const SizedBox(height: 16), // Spacing before the "Variations" box
             // --- Variations ---
             UniversalTextField(
               controller: assessmentProvider.variationsController,
@@ -112,7 +354,8 @@ class GenerateSection extends StatelessWidget {
                 SizedBox(
                   width: context.widthPercent(0.55),
                   child: UniversalTextField(
-                    controller: assessmentProvider.fillBlankCountController, // Wired!
+                    controller: assessmentProvider.fillBlankCountController,
+                    // Wired!
                     labelText: "Fill in the Blanks",
                     keyboardType: TextInputType.number,
                   ),
@@ -120,11 +363,12 @@ class GenerateSection extends StatelessWidget {
                 SizedBox(
                   width: context.widthPercent(0.25),
                   child: UniversalTextField(
-                    controller: assessmentProvider.fillBlankMarksController, // Wired!
+                    controller: assessmentProvider.fillBlankMarksController,
+                    // Wired!
                     labelText: "Marks each",
                     keyboardType: TextInputType.number,
                   ),
-                )
+                ),
               ],
             ),
 

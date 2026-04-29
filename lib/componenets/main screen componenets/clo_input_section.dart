@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:examis_ai/provider/assessment_provider.dart';
 import 'package:examis_ai/theming/app_colors.dart';
+import 'package:image_picker/image_picker.dart'; // <--- NEW IMPORT
 
 class CloInputSection extends StatelessWidget {
   const CloInputSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Watch the provider so the UI updates when we add/remove fields
+    // Watch the provider so the UI updates when we add/remove fields or load the camera
     final provider = context.watch<AssessmentProvider>();
 
     return Container(
@@ -23,42 +24,84 @@ class CloInputSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+
+          // --- UPDATED: Title, Optional Badge, and Camera Buttons ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                "Learning Objectives",
-                style: TextStyle(
-                  color: context.textPrimary,
-                  fontFamily: "Lato",
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(50),
-                  color: AppColors.primary.withAlpha(35),
-                ),
-                child: const Center(
-                  child: Text(
-                    "Optional",
+              // Left Side: Title & Badge
+              Row(
+                children: [
+                  Text(
+                    "Learning Objectives",
                     style: TextStyle(
+                      color: context.textPrimary,
                       fontFamily: "Lato",
-                      color: AppColors.primary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 15,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(50),
+                      color: AppColors.primary.withAlpha(35),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Optional",
+                        style: TextStyle(
+                          fontFamily: "Lato",
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Right Side: Magic Camera Buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (provider.isExtractingCLOs)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8.0),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      ),
+                    )
+                  else ...[
+                    IconButton(
+                      icon: const Icon(Icons.photo_library_rounded, size: 20, color: AppColors.primary),
+                      tooltip: "Scan from Gallery",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => provider.scanCLOsFromImage(ImageSource.gallery),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.document_scanner_rounded, size: 20, color: AppColors.primary),
+                      tooltip: "Scan with Camera",
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => provider.scanCLOsFromImage(ImageSource.camera),
+                    ),
+                  ]
+                ],
               ),
             ],
           ),
+
           const SizedBox(height: 16),
           ...provider.cloControllers.asMap().entries.map((entry) {
             final int index = entry.key;

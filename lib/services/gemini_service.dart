@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:examis_ai/core/secrets.dart';
+import 'dart:io';
 
 class GeminiService {
   final _model = GenerativeModel(
@@ -15,11 +16,15 @@ class GeminiService {
   Future<Map<String, dynamic>?> generateAssessment({
     required String documentText,
     required String difficulty,
+    required String paperCategory,
     int mcqCount = 0,
     int shortQCount = 0,
     int longQCount = 0,
-    int fillBlankCount = 0, // <--- NEW
+    int fillBlankCount = 0,
     List<String> activeCLOs = const [],
+    bool letAIGenerateScenario = true, // <--- NEW
+    List<Map<String, dynamic>> customScenarios = const [],
+    String customScenario = "", // <--- NEW
   }) async {
     String cloPromptSection = "";
     String cloJsonField = "";
@@ -41,11 +46,60 @@ class GeminiService {
       cloJsonField = ',\n            "target_clo": "CLO 1"';
     }
 
+    // 2. Build the Paper Category Constraint
+    String categoryInstruction = "";
+    if (paperCategory == "Theory Based") {
+      categoryInstruction = "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
+    } else if (paperCategory == "Theory + Code/Scenario") {
+      categoryInstruction = "CRITICAL PAPER STYLE: Generate a balanced mix. Half the questions should test theoretical recall, and the other half MUST present a short real-world scenario or a block of code to analyze.";
+    } else if (paperCategory == "Strictly Code/Scenario") {
+      categoryInstruction = "CRITICAL PAPER STYLE: Every single question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
+    }
+
+    // 3. Build the Custom Scenario Constraint
+    String scenarioInstruction = "";
+    String scenarioJsonField = "";
+
+    if (paperCategory != "Theory Based" && customScenarios.isNotEmpty) {
+      // Create a formatted string of what the teacher requested
+      String formattedRequests = customScenarios.asMap().entries.map((e) {
+        return "Scenario ${e.key + 1} (Marks: ${e.value['marks']}): ${e.value['text']}";
+      }).join("\n");
+
+      if (letAIGenerateScenario) {
+        scenarioInstruction = """
+        SCENARIO RULE: You MUST generate ${customScenarios.length} scenarios or code blocks based on the following hints.
+        
+        CRITICAL CONSTRAINTS FOR GENERATION:
+        1. If the hint asks for a scenario or case study, write a clear, text-based narrative story or problem description.
+        2. If the hint asks for code, you MUST output pure, fresh code. You are STRICTLY FORBIDDEN from adding any code comments (e.g., no //, no /* */, no #) unless the teacher's hint specifically asks you to include them. Do not explain the code inside the code block.
+        
+        [TEACHER HINTS]
+        $formattedRequests
+        """;
+      } else {
+        scenarioInstruction = "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them. Base your questions strictly on these.\n[EXACT TEXT]\n$formattedRequests";
+      }
+
+      // Force Gemini to output the scenarios back to us!
+      scenarioJsonField = '''
+        ,
+        "custom_scenarios": [
+          {
+            "text": "The full scenario text or code block...",
+            "marks": 10
+          }
+        ]
+      ''';
+    }
+
     final prompt =
         '''
       You are an expert educational assessment generator.
       Analyze the following document text and generate a test based strictly on its contents.
       Difficulty level: $difficulty.
+      $categoryInstruction
+      $scenarioInstruction
 
       Generate exactly $mcqCount Multiple Choice Questions, $fillBlankCount Fill in the Blank Questions, $shortQCount Short Answer Questions, and $longQCount Long Essay Questions.
 
@@ -55,7 +109,7 @@ class GeminiService {
 
       You must return the data strictly in the following JSON structure:
       {
-        "title": "A short, relevant title for this assessment",
+        "title": "A short, relevant title for this assessment"$scenarioJsonField,
         "mcqs": [
           {
             "question": "The question text here?",
@@ -126,76 +180,148 @@ class GeminiService {
     required String documentText,
     required String difficulty,
     required String questionType,
+    required String paperCategory, // <--- 1. NEW PARAMETER
     String? targetClo,
   }) async {
+
+    // ==========================================
+    // 2. Build the Paper Category Constraint
+    // ==========================================
+    String categoryInstruction = "";
+    if (paperCategory == "Theory Based") {
+      categoryInstruction = "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
+    } else if (paperCategory == "Theory + Code/Scenario") {
+      categoryInstruction = "CRITICAL PAPER STYLE: Ensure the question leans towards a real-world scenario, case study, or code analysis rather than pure theory.";
+    } else if (paperCategory == "Strictly Code/Scenario") {
+      categoryInstruction = "CRITICAL PAPER STYLE: This question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
+    }
+
     String cloInstruction = "";
     String cloJsonField = "";
 
     if (targetClo != null && targetClo.isNotEmpty) {
       cloInstruction =
-          "CRITICAL RULE: This new question MUST strictly align with this Course Learning Objective: $targetClo.";
+      "CRITICAL RULE: This new question MUST strictly align with this Course Learning Objective: $targetClo.";
       cloJsonField = ',\n        "target_clo": "$targetClo"';
     }
 
     String formatGuide = "";
     if (questionType == "mcqs") {
       formatGuide = '''
-      {
-        "question": "New Question?",
-        "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
-        "correctAnswer": "Correct Option"$cloJsonField
-      }
-      ''';
+    {
+      "question": "New Question?",
+      "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
+      "correctAnswer": "Correct Option"$cloJsonField
+    }
+    ''';
     } else if (questionType == "fillInTheBlanks") {
       formatGuide = '''
-      {
-        "question": "The new question with a ________ blank?", 
-        "answer": "The correct word"$cloJsonField
-      }
-      ''';
+    {
+      "question": "The new question with a ________ blank?", 
+      "answer": "The correct word"$cloJsonField
+    }
+    ''';
     } else if (questionType == "shortQuestions") {
       formatGuide =
-          '''
-      {
-        "question": "New short question?", 
-        "idealAnswer": "Ideal answer text"$cloJsonField
-      }
-      ''';
+      '''
+    {
+      "question": "New short question?", 
+      "idealAnswer": "Ideal answer text"$cloJsonField
+    }
+    ''';
     } else {
       formatGuide =
-          '''
-      {
-        "question": "New long question?", 
-        "gradingRubric": "Rubric text"$cloJsonField
-      }
-      ''';
+      '''
+    {
+      "question": "New long question?", 
+      "gradingRubric": "Rubric text"$cloJsonField
+    }
+    ''';
     }
 
     final prompt =
-        '''
-      You are an expert educational assessment generator.
-      Generate EXACTLY ONE new, unique question based on the document below.
-      Difficulty level: $difficulty.
+    '''
+    You are an expert educational assessment generator.
+    Generate EXACTLY ONE new, unique question based on the document below.
+    Difficulty level: $difficulty.
+    
+    $categoryInstruction
 
-      Ensure it is completely different from obvious questions.
-      $cloInstruction
+    Ensure it is completely different from obvious questions.
+    $cloInstruction
 
-      Return ONLY a single JSON object (not a list) matching this exact structure:
-      $formatGuide
+    Return ONLY a single JSON object (not a list) matching this exact structure:
+    $formatGuide
 
-      Document Text:
-      """
-      $documentText
-      """
+    Document Text:
+    """
+    $documentText
+    """
+  ''';
+
+    int maxRetries = 3;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _model.generateContent([Content.text(prompt)]);
+        if (response.text == null || response.text!.isEmpty) return null;
+        return jsonDecode(response.text!);
+      } catch (e) {
+        print("Gemini Generation Error on attempt $attempt: $e");
+        String errorString = e.toString();
+
+        if (errorString.contains('503') || errorString.contains('429') || errorString.contains('Quota exceeded')) {
+          if (attempt == maxRetries) {
+            throw Exception("Rate Limit Hit. Please wait a minute before generating again.");
+          }
+
+          // 👇 CHANGED: Wait 25 seconds to guarantee we clear Google's 20-second timeout 👇
+          int delaySeconds = 25;
+          print("Rate limit hit! Waiting $delaySeconds seconds for Google servers to cool down...");
+          await Future.delayed(Duration(seconds: delaySeconds));
+        } else {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<List<String>> extractCLOsFromImage(File imageFile) async {
+    final prompt = '''
+      You are an expert curriculum assistant. 
+      Analyze this image (which is likely a syllabus or exam paper) and extract all Course Learning Objectives (CLOs), Learning Outcomes, or main topics.
+      
+      CRITICAL RULE: Return ONLY a valid JSON array of strings. Do not include markdown formatting like ```json. Do not say "Here are the CLOs". 
+      
+      Example output format:
+      ["Understand the basics of OOP", "Apply polymorphism in Java", "Analyze time complexity"]
     ''';
 
     try {
-      final response = await _model.generateContent([Content.text(prompt)]);
-      if (response.text == null || response.text!.isEmpty) return null;
-      return jsonDecode(response.text!);
+      final imageBytes = await imageFile.readAsBytes();
+
+      // We pass BOTH text and image data to Gemini
+      final content = [
+        Content.multi([
+          TextPart(prompt),
+          DataPart('image/jpeg', imageBytes),
+        ])
+      ];
+
+      final response = await _model.generateContent(content);
+
+      if (response.text == null || response.text!.isEmpty) return [];
+
+      // Clean the response just in case Gemini disobeys and adds markdown
+      String cleanJson = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
+
+      List<dynamic> parsedList = jsonDecode(cleanJson);
+      return parsedList.map((e) => e.toString()).toList();
+
     } catch (e) {
-      print("Single Generation Error: $e");
-      return null;
+      print("Vision Extraction Error: $e");
+      return [];
     }
   }
 }

@@ -27,6 +27,7 @@ class ExportService {
                 "long_points": 10,
                 "fib_points": 1,
               },
+          "custom_scenarios": data['custom_scenarios'] ?? [],
           "mcqs": data['mcqs'] ?? [],
           "shortQuestions": data['shortQuestions'] ?? [],
           "longQuestions": data['longQuestions'] ?? [],
