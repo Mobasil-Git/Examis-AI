@@ -1,6 +1,7 @@
 import 'package:examis_ai/componenets/dialogs/forgot_password_dialogs.dart';
 import 'package:examis_ai/componenets/social_icon/build_social_icon.dart';
 import 'package:examis_ai/componenets/universal%20components/universal_text_field.dart';
+import 'package:examis_ai/layout/master_layout.dart';
 import 'package:examis_ai/pages/auth/signup_page.dart';
 import 'package:examis_ai/provider/auth_provider.dart';
 import 'package:examis_ai/theming/app_colors.dart';
@@ -24,40 +25,34 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   bool isPasswordHidden = true;
 
-  // 1. Create a variable to hold our listener
   late final StreamSubscription<AuthState> _authStateSubscription;
 
   @override
   void initState() {
     super.initState();
 
-    // 2. Start listening the moment the Login Page opens!
-    _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final AuthChangeEvent event = data.event;
+    _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen((data) {
+          final AuthChangeEvent event = data.event;
 
-      // 3. If Supabase announces a successful login (like returning from Google)...
-      if (event == AuthChangeEvent.signedIn) {
-        if (mounted) {
-          // 4. ...Instantly send them to the Dashboard!
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardPage()),
-          );
-        }
-      }
-    });
+          if (event == AuthChangeEvent.signedIn) {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const MasterLayout()),
+              );
+            }
+          }
+        });
   }
 
   @override
   void dispose() {
-    // 5. Don't forget to cancel the listener when leaving the page to save memory!
     _authStateSubscription.cancel();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
   }
-
-  // Helper widget for Social Buttons
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +65,6 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- Logo & Header ---
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -104,8 +98,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 SizedBox(height: context.heightPercent(0.05)),
-
-                // --- Login Form Card ---
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -117,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       UniversalTextField(
                         controller: emailController,
-                        labelText: "Email Address",
+                        hintText: "Email Address",
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: Icon(
                           Icons.email_outlined,
@@ -127,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: context.heightPercent(0.017)),
                       UniversalTextField(
                         controller: passwordController,
-                        labelText: "Password",
+                        hintText:  "Password",
                         obscureText: isPasswordHidden,
                         prefixIcon: Icon(
                           Icons.lock_outline,
@@ -147,8 +139,6 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                       ),
-
-                      // Forgot Password Link
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -171,7 +161,6 @@ class _LoginPageState extends State<LoginPage> {
 
                       SizedBox(height: context.heightPercent(0.017)),
 
-                      // Login Button
                       Consumer<AuthProvider>(
                         builder: (context, auth, child) {
                           return GestureDetector(
@@ -201,11 +190,12 @@ class _LoginPageState extends State<LoginPage> {
                                     );
 
                                     if (success && context.mounted) {
-                                      Navigator.pushReplacement(
+                                      Navigator.pushAndRemoveUntil(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => const DashboardPage(),
+                                          builder: (_) => const MasterLayout(),
                                         ),
+                                            (route) => false,
                                       );
                                     }
                                   },
@@ -245,7 +235,6 @@ class _LoginPageState extends State<LoginPage> {
 
                       SizedBox(height: context.heightPercent(0.03)),
 
-                      // --- THE NEW SOCIAL LOGIN SECTION ---
                       Row(
                         children: [
                           Expanded(child: Divider(color: context.border)),
@@ -267,10 +256,12 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: context.heightPercent(0.025)),
 
                       BuildSocialIcon(
-                        image: 'assets/social_icons/google.png', // Assuming you added the PNG!
-                        text: "Continue with Google", // The new text parameter
+                        image: 'assets/social_icons/google.png',
+                        text: "Continue with Google",
                         onTap: () async {
-                          await context.read<AuthProvider>().signInWithGoogle(context);
+                          await context.read<AuthProvider>().signInWithGoogle(
+                            context,
+                          );
                         },
                       ),
                     ],
@@ -279,7 +270,6 @@ class _LoginPageState extends State<LoginPage> {
 
                 SizedBox(height: context.heightPercent(0.024)),
 
-                // --- Switch to Sign Up ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -16,7 +16,6 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      // --- INJECT THE LIGHT CUSTOM COLORS HERE ---
       extensions: const <ThemeExtension<dynamic>>[
         AppThemeExtension(
           background: AppColors.lightBackground,
@@ -43,7 +42,6 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      // --- INJECT THE DARK CUSTOM COLORS HERE ---
       extensions: const <ThemeExtension<dynamic>>[
         AppThemeExtension(
           background: AppColors.darkBackground,

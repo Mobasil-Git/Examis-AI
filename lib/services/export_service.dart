@@ -7,10 +7,10 @@ import 'package:http/http.dart' as http;
 
 class ExportService {
   Future<bool> exportToWord(
-    Map<String, dynamic> data,
-    String templateUrl,
-    bool showCloTags,
-  ) async {
+      Map<String, dynamic> data,
+      String templateUrl,
+      bool showCloTags,
+      ) async {
     try {
       final apiUrl = Uri.parse(AppSecrets.documentAPI_KEY);
 
@@ -20,7 +20,7 @@ class ExportService {
         "exam_data": {
           "title": data['title'] ?? "Assessment",
           "marks":
-              data['marks'] ??
+          data['marks'] ??
               {
                 "mcq_points": 1,
                 "short_points": 3,
@@ -32,6 +32,9 @@ class ExportService {
           "shortQuestions": data['shortQuestions'] ?? [],
           "longQuestions": data['longQuestions'] ?? [],
           "fillInTheBlanks": data['fillInTheBlanks'] ?? [],
+
+          // 👇 THE MISSING PIECE! 👇
+          "diagram_questions": data['diagram_questions'] ?? [],
         },
       };
 

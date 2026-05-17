@@ -12,6 +12,57 @@ import '../../pages/assessment_preview_page.dart';
 class GenerateSection extends StatelessWidget {
   const GenerateSection({super.key});
 
+  Widget _buildConfigRow(
+    BuildContext context, {
+    required String title,
+    required TextEditingController countCtrl,
+    required TextEditingController marksCtrl,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: context.textPrimary,
+                  fontFamily: 'Lato',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: UniversalTextField(
+              controller: countCtrl,
+              labelText: "Qty",
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: UniversalTextField(
+              controller: marksCtrl,
+              labelText: "Marks",
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final assessmentProvider = context.watch<AssessmentProvider>();
@@ -22,14 +73,11 @@ class GenerateSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: context.border),
       ),
-      // Added a bit more vertical padding at the top and bottom
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: SingleChildScrollView(
-        // Added this so it scrolls gracefully if it gets too tall
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
-          // Changed to min so it wraps its content
           children: [
             // --- Header Row ---
             Row(
@@ -71,11 +119,11 @@ class GenerateSection extends StatelessWidget {
             ),
 
             const SizedBox(height: 20),
+
             // --- Paper Category Dropdown ---
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Section Title
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 8),
                   child: Text(
@@ -89,8 +137,6 @@ class GenerateSection extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // The Main Control Card
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -103,7 +149,6 @@ class GenerateSection extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      // --- The Dropdown Header ---
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -124,12 +169,8 @@ class GenerateSection extends StatelessWidget {
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
-                            items:
-                                [
-                                  'Theory Based',
-                                  'Theory + Code/Scenario',
-                                  'Strictly Code/Scenario',
-                                ].map((String value) {
+                            items: ['Theory Based', 'Theory + Code/Scenario']
+                                .map((String value) {
                                   return DropdownMenuItem<String>(
                                     value: value,
                                     child: Row(
@@ -149,20 +190,19 @@ class GenerateSection extends StatelessWidget {
                                       ],
                                     ),
                                   );
-                                }).toList(),
+                                })
+                                .toList(),
                             onChanged: assessmentProvider.updatePaperCategory,
                           ),
                         ),
                       ),
-
-                      // --- The Smooth Expanding Settings Area ---
                       AnimatedSize(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
                         child:
                             assessmentProvider.selectedPaperCategory ==
                                 'Theory Based'
-                            ? const SizedBox.shrink() // Hidden when Theory is selected
+                            ? const SizedBox.shrink()
                             : Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
@@ -180,7 +220,6 @@ class GenerateSection extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Premium Switch Tile instead of a Checkbox
                                     SwitchListTile(
                                       title: Text(
                                         "Auto-Generate Scenarios",
@@ -207,8 +246,6 @@ class GenerateSection extends StatelessWidget {
                                       activeTrackColor: AppColors.primary
                                           .withAlpha(50),
                                     ),
-
-                                    // Dynamic Custom Scenario List
                                     Padding(
                                       padding: const EdgeInsets.only(
                                         left: 16,
@@ -234,13 +271,14 @@ class GenerateSection extends StatelessWidget {
                                                     child: UniversalTextField(
                                                       controller: assessmentProvider
                                                           .scenarioTextControllers[index],
-                                                      // 👇 DYNAMIC LABEL 👇
                                                       labelText:
                                                           assessmentProvider
                                                               .letAIGenerateScenario
-                                                          ? "AI Hint (e.g., 'C++ code with errors')"
-                                                          : "Paste Exact Scenario / Code",
-                                                      maxLines: 3,
+                                                          ? "AI Hint"
+                                                          : "Paste Exact Scenario",
+                                                      hintText:
+                                                          "e.g., C++ errors",
+                                                      maxLines: 2,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -250,6 +288,8 @@ class GenerateSection extends StatelessWidget {
                                                       controller: assessmentProvider
                                                           .scenarioMarksControllers[index],
                                                       labelText: "Marks",
+                                                      textAlign:
+                                                          TextAlign.center,
                                                       keyboardType:
                                                           TextInputType.number,
                                                     ),
@@ -275,7 +315,6 @@ class GenerateSection extends StatelessWidget {
                                             );
                                           }),
                                           const SizedBox(height: 12),
-                                          // Sleek Outlined Button
                                           OutlinedButton.icon(
                                             onPressed: assessmentProvider
                                                 .addCustomScenario,
@@ -310,119 +349,40 @@ class GenerateSection extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 20), // Spacing before the "Variations" box
+            const SizedBox(height: 24),
+            // Removed Variations and its spacing, jumping straight to inputs!
 
-            const SizedBox(height: 16), // Spacing before the "Variations" box
-            // --- Variations ---
-            UniversalTextField(
-              controller: assessmentProvider.variationsController,
-              labelText: "Total variations (e.g. 3)",
-              keyboardType: TextInputType.number,
+            // 🚀 THE CLEAN ROWS
+            _buildConfigRow(
+              context,
+              title: "Multiple Choice",
+              countCtrl: assessmentProvider.mcqCountController,
+              marksCtrl: assessmentProvider.mcqMarksController,
             ),
 
-            const SizedBox(height: 16), // Added explicit spacing!
-            // --- MCQs ---
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: context.widthPercent(0.55),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.mcqCountController,
-                    labelText: "Number of MCQs",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                SizedBox(
-                  width: context.widthPercent(0.25),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.mcqMarksController,
-                    labelText: "Marks each",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
+            _buildConfigRow(
+              context,
+              title: "Fill in Blanks",
+              countCtrl: assessmentProvider.fillBlankCountController,
+              marksCtrl: assessmentProvider.fillBlankMarksController,
             ),
 
-            const SizedBox(height: 16), // Added explicit spacing!
-            // --- Fill in the Blanks ---
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: context.widthPercent(0.55),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.fillBlankCountController,
-                    // Wired!
-                    labelText: "Fill in the Blanks",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                SizedBox(
-                  width: context.widthPercent(0.25),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.fillBlankMarksController,
-                    // Wired!
-                    labelText: "Marks each",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
+            _buildConfigRow(
+              context,
+              title: "Short Questions",
+              countCtrl: assessmentProvider.shortCountController,
+              marksCtrl: assessmentProvider.shortMarksController,
             ),
 
-            const SizedBox(height: 16), // Keeps our clean spacing
-            // --- Short Questions ---
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: context.widthPercent(0.55),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.shortCountController,
-                    labelText: "Short Questions",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                SizedBox(
-                  width: context.widthPercent(0.25),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.shortMarksController,
-                    labelText: "Marks each",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
+            _buildConfigRow(
+              context,
+              title: "Long Questions",
+              countCtrl: assessmentProvider.longCountController,
+              marksCtrl: assessmentProvider.longMarksController,
             ),
 
-            const SizedBox(height: 16), // Added explicit spacing!
-            // --- Long Questions ---
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: context.widthPercent(0.55),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.longCountController,
-                    labelText: "Long Questions",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                SizedBox(
-                  width: context.widthPercent(0.25),
-                  child: UniversalTextField(
-                    controller: assessmentProvider.longMarksController,
-                    labelText: "Marks each",
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
+            const SizedBox(height: 24),
 
-            const SizedBox(height: 24), // Extra space before the button!
             // --- Generate Button ---
             Consumer<AssessmentProvider>(
               builder: (context, provider, child) {
@@ -431,7 +391,6 @@ class GenerateSection extends StatelessWidget {
                       ? null
                       : () async {
                           FocusScope.of(context).unfocus();
-
                           final prefs = await SharedPreferences.getInstance();
                           final String difficulty =
                               prefs.getString('selectedDifficulty') ?? "Medium";
@@ -445,7 +404,6 @@ class GenerateSection extends StatelessWidget {
                             await context
                                 .read<HistoryProvider>()
                                 .saveAssessment(provider.generatedAssessment!);
-
                             if (!context.mounted) return;
                             Navigator.push(
                               context,
@@ -457,7 +415,6 @@ class GenerateSection extends StatelessWidget {
                         },
                   child: Container(
                     height: 50,
-                    // Changed from heightPercent to a fixed 50px so it doesn't squish
                     width: context.widthPercent(0.4),
                     decoration: BoxDecoration(
                       color: provider.isLoading
@@ -504,6 +461,7 @@ class GenerateSection extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 80),
           ],
         ),
       ),

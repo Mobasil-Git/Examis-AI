@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:examis_ai/provider/theme_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Added for fetching templates
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/export_service.dart';
 
 class AssessmentPreviewPage extends StatelessWidget {
@@ -13,12 +13,9 @@ class AssessmentPreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Grab the data from the provider
     final provider = context.watch<AssessmentProvider>();
     final data = provider.generatedAssessment;
     final themeProvider = context.watch<ThemeProvider>();
-
-    // Safety check just in case it loads empty
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Error")),
@@ -26,13 +23,13 @@ class AssessmentPreviewPage extends StatelessWidget {
       );
     }
 
-    // Extract the lists safely (defaulting to empty lists if they don't exist)
     final String title = data['title'] ?? "Generated Assessment";
     final List<dynamic> mcqs = data['mcqs'] ?? [];
     final List<dynamic> shortQs = data['shortQuestions'] ?? [];
     final List<dynamic> longQs = data['longQuestions'] ?? [];
     final List<dynamic> fillBlanks = data['fillInTheBlanks'] ?? [];
     final List<dynamic> scenarios = data['custom_scenarios'] ?? [];
+    final List<dynamic> diagramQs = data['diagram_questions'] ?? [];
 
     return Scaffold(
       backgroundColor: context.background,
@@ -61,7 +58,6 @@ class AssessmentPreviewPage extends StatelessWidget {
             icon: Icons.description_outlined,
             color: Colors.blueAccent,
             onTap: () {
-              // Open the template selector
               _showTemplateSelectionBottomSheet(context, data);
             },
           ),
@@ -72,7 +68,6 @@ class AssessmentPreviewPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Title Section ---
             Text(
               title,
               style: TextStyle(
@@ -97,7 +92,6 @@ class AssessmentPreviewPage extends StatelessWidget {
               child: Divider(color: context.border),
             ),
 
-            // --- Scenarios / Case Studies Section ---
             if (scenarios.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Scenarios & Code Blocks"),
@@ -129,7 +123,7 @@ class AssessmentPreviewPage extends StatelessWidget {
                         scData['text'].toString(),
                         style: TextStyle(
                           color: context.textSecondary,
-                          fontFamily: 'monospace', // Great for code!
+                          fontFamily: 'monospace',
                           fontSize: 14,
                         ),
                       ),
@@ -138,27 +132,25 @@ class AssessmentPreviewPage extends StatelessWidget {
                 );
               }),
             ],
-            // --- Multiple Choice Section ---
             if (mcqs.isNotEmpty) ...[
               _buildSectionHeader("Multiple Choice (${mcqs.length})"),
               ...mcqs.asMap().entries.map(
-                // Note: We pass the raw index (entry.key) and the provider now!
                 (entry) =>
                     _buildMCQCard(entry.key, entry.value, context, provider),
               ),
             ],
-
-            // --- Fill in the Blanks Section ---
             if (fillBlanks.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Fill in the Blanks (${fillBlanks.length})"),
               ...fillBlanks.asMap().entries.map(
-                    (entry) =>
-                    _buildFillBlankCard(entry.key, entry.value, context, provider),
+                (entry) => _buildFillBlankCard(
+                  entry.key,
+                  entry.value,
+                  context,
+                  provider,
+                ),
               ),
             ],
-
-            // --- Short Answer Section ---
             if (shortQs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Short Answer (${shortQs.length})"),
@@ -167,8 +159,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                     _buildShortQCard(entry.key, entry.value, context, provider),
               ),
             ],
-
-            // --- Long Essay Section ---
             if (longQs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Long Essay (${longQs.length})"),
@@ -178,14 +168,112 @@ class AssessmentPreviewPage extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 40), // Extra padding at the bottom
+            if (diagramQs.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSectionHeader("Diagrams & Visuals (${diagramQs.length})"),
+              ...diagramQs.asMap().entries.map((entry) {
+                final diagram = entry.value;
+                final int displayIndex = entry.key + 1;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: context.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: context.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "$displayIndex. ${diagram['question'] ?? ""}",
+                              style: TextStyle(
+                                color: context.textPrimary,
+                                fontFamily: 'Lato',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "[${diagram['marks']} Marks]",
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (diagram['target_clo'] != null &&
+                          diagram['target_clo'].toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0, bottom: 8.0),
+                          child: Text(
+                            diagram['target_clo'],
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: context.textSecondary,
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      if (diagram['image_url'] != null &&
+                          diagram['image_url'].toString().isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            diagram['image_url'],
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const SizedBox(
+                                height: 100,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: context.background,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image_rounded,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
-
-  // --- Helper Methods to keep the code DRY and flat ---
 
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -218,10 +306,9 @@ class AssessmentPreviewPage extends StatelessWidget {
       transitionBuilder: (child, animation) =>
           ScaleTransition(scale: animation, child: child),
       child: isRegenerating
-          ? _buildLoadingCard(context) // Shows our custom spinner skeleton!
+          ? _buildLoadingCard(context)
           : Container(
               key: ValueKey(questionData['question']),
-              // Crucial for animation!
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -246,7 +333,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // THE REFRESH BUTTON
                       IconButton(
                         icon: const Icon(
                           Icons.refresh,
@@ -492,13 +578,10 @@ class AssessmentPreviewPage extends StatelessWidget {
     );
   }
 
-  // --- A nice glowing skeleton loader for when a card is regenerating ---
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
       key: const ValueKey("loading"),
-      // Crucial for animation!
       height: 180,
-      // Made it slightly taller to comfortably fit your asset!
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: context.surface,
@@ -523,7 +606,7 @@ class AssessmentPreviewPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // A sleek, tiny loading bar to keep the "working" feel underneath the text
+
             SizedBox(
               width: 100,
               child: ClipRRect(
@@ -541,11 +624,11 @@ class AssessmentPreviewPage extends StatelessWidget {
   }
 
   Widget _buildFillBlankCard(
-      int listIndex,
-      Map<String, dynamic> questionData,
-      BuildContext context,
-      AssessmentProvider provider,
-      ) {
+    int listIndex,
+    Map<String, dynamic> questionData,
+    BuildContext context,
+    AssessmentProvider provider,
+  ) {
     final bool isRegenerating = provider.isRegenerating(
       "fillInTheBlanks",
       listIndex,
@@ -559,74 +642,73 @@ class AssessmentPreviewPage extends StatelessWidget {
       child: isRegenerating
           ? _buildLoadingCard(context)
           : Container(
-        key: ValueKey(questionData['question']),
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: context.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    "$displayIndex. ${questionData['question']}",
-                    style: TextStyle(
-                      color: context.textPrimary,
-                      fontFamily: 'Lato',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+              key: ValueKey(questionData['question']),
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: context.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "$displayIndex. ${questionData['question']}",
+                          style: TextStyle(
+                            color: context.textPrimary,
+                            fontFamily: 'Lato',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        onPressed: () => provider.regenerateSingleItem(
+                          context,
+                          "fillInTheBlanks",
+                          listIndex,
+                        ),
+                        tooltip: "Regenerate Question",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.refresh,
-                    color: AppColors.primary,
-                    size: 20,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.edit_note,
+                        color: Colors.blueAccent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Answer: ${questionData['answer']}",
+                          style: const TextStyle(
+                            color: Colors.blueAccent,
+                            fontFamily: 'Lato',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  // Calls regenerate on the specific fillInTheBlanks array!
-                  onPressed: () => provider.regenerateSingleItem(
-                    context,
-                    "fillInTheBlanks",
-                    listIndex,
-                  ),
-                  tooltip: "Regenerate Question",
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.edit_note,
-                  color: Colors.blueAccent,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Answer: ${questionData['answer']}",
-                    style: const TextStyle(
-                      color: Colors.blueAccent,
-                      fontFamily: 'Lato',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -666,25 +748,20 @@ class AssessmentPreviewPage extends StatelessWidget {
     );
   }
 
-  // --- BOTTOM SHEET FOR TEMPLATE SELECTION ---
-  // --- BOTTOM SHEET FOR TEMPLATE SELECTION ---
   void _showTemplateSelectionBottomSheet(
     BuildContext context,
     Map<String, dynamic> data,
   ) {
-    // 1. A local variable to track the toggle switch
     bool showCloTags = false;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: context.background,
       isScrollControlled: true,
-      // Prevents list clipping
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext bottomSheetContext) {
-        // 2. Wrap the content in a StatefulBuilder so the toggle can animate
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             return Padding(
@@ -712,9 +789,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // ==========================================
-                  // NEW SECTION: OBE / CLO TOGGLE SWITCH
-                  // ==========================================
                   Container(
                     decoration: BoxDecoration(
                       color: context.surface,
@@ -742,7 +816,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                         ),
                       ),
                       onChanged: (bool value) {
-                        // Flips the switch inside the bottom sheet
                         setSheetState(() {
                           showCloTags = value;
                         });
@@ -750,10 +823,8 @@ class AssessmentPreviewPage extends StatelessWidget {
                     ),
                   ),
 
-                  // ==========================================
                   const SizedBox(height: 16),
 
-                  // Fetch the templates from Supabase
                   Flexible(
                     child: FutureBuilder<List<Map<String, dynamic>>>(
                       future: Supabase.instance.client
@@ -799,7 +870,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                           );
                         }
 
-                        // Build the list of templates
                         return ListView.builder(
                           shrinkWrap: true,
                           itemCount: institutes.length,
@@ -831,10 +901,8 @@ class AssessmentPreviewPage extends StatelessWidget {
                                 vertical: 4,
                               ),
                               onTap: () async {
-                                // 1. Close the bottom sheet
                                 Navigator.pop(bottomSheetContext);
 
-                                // 2. Show the loading snackbar
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
@@ -843,7 +911,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                                   ),
                                 );
 
-                                // 3. TRIGGER THE EXPORT WITH THE NEW TOGGLE VALUE!
                                 final String selectedUrl =
                                     institute['template_url'];
                                 final success = await ExportService()
@@ -853,7 +920,6 @@ class AssessmentPreviewPage extends StatelessWidget {
                                       showCloTags,
                                     );
 
-                                // 4. Handle Success/Fail
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(
                                     context,

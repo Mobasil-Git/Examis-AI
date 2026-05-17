@@ -1,26 +1,38 @@
-import 'dart:io';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 
 class DocumentService {
-  Future<String?> extractTextFromPDF(String filePath) async {
+  final String _extractUrl = 'https://examis-text-extractor.vercel.app/extract-text';
+
+  Future<String?> extractTextFromFiles(List<PlatformFile> files) async {
     try {
-      File file = File(filePath);
-      final PdfDocument document = PdfDocument(
-        inputBytes: await file.readAsBytes(),
-      );
-      String extractedText = PdfTextExtractor(document).extractText();
-      document.dispose();
-
-      if (extractedText.trim().isEmpty) return null;
-
-      if (extractedText.length > 15000) {
-        extractedText = extractedText.substring(0, 15000);
+      var request = http.MultipartRequest('POST', Uri.parse(_extractUrl));
+      for (var file in files) {
+        if (file.path != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath('files', file.path!),
+          );
+        }
       }
 
-      return extractedText;
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        var jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['success'] == true) {
+          return jsonResponse['extracted_text'];
+        } else {
+          print("Python Extraction Error: ${jsonResponse['error']}");
+          return null;
+        }
+      } else {
+        print("Server Error: ${response.statusCode}");
+        return null;
+      }
     } catch (e) {
-      debugPrint("Failed to extract text: $e");
+      print("Network Error sending files: $e");
       return null;
     }
   }

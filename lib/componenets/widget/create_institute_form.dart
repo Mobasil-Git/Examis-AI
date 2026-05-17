@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:examis_ai/componenets/universal%20components/universal_text_field.dart';
 import 'package:examis_ai/services/template_service.dart';
-import 'package:examis_ai/theming/app_colors.dart'; // Ensure this contains your context extensions!
+import 'package:examis_ai/theming/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class CreateInstituteForm extends StatefulWidget {
@@ -37,7 +37,7 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please select a .docx template file.', style: TextStyle(color: Colors.white)),
-          backgroundColor: context.error, // Dynamic error color
+          backgroundColor: context.error,
         ),
       );
       return;
@@ -80,13 +80,13 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: context.surface, // Dynamic Card Background
+      color: context.surface,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: context.border, width: 1.5), // Dynamic Border
-        borderRadius: BorderRadius.circular(18), // Matched UniversalTextField radius
+        side: BorderSide(color: context.border, width: 1.5),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0), // Slightly more padding for breathing room
+        padding: const EdgeInsets.all(20.0),
         child: Form(
           key: _formKey,
           child: Column(
@@ -96,7 +96,7 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
               Text(
                 "Add New Institute",
                 style: TextStyle(
-                    color: context.textPrimary, // Dynamic Title Text
+                    color: context.textPrimary,
                     fontFamily: 'Lato',
                     fontSize: 18,
                     fontWeight: FontWeight.bold
@@ -117,7 +117,6 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
 
               const SizedBox(height: 16),
 
-              // File Picker Button Theme Update
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

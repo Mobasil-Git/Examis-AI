@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:examis_ai/services/google_drive_service.dart';
+import 'package:intl/intl.dart'; // <-- REQUIRED FOR DATE FORMATTING
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -35,6 +36,22 @@ class HistoryPage extends StatelessWidget {
       body: Consumer<HistoryProvider>(
         builder: (context, historyProvider, child) {
           final history = historyProvider.savedAssessments;
+
+          // 🚀 FORCE SORT BY DATE (Newest First)
+          final sortedHistory = List<Map<String, dynamic>>.from(history);
+          sortedHistory.sort((a, b) {
+            // Safely parse dates, default to 0 if missing
+            final dateA = a['created_at'] != null
+                ? DateTime.tryParse(a['created_at']) ??
+                      DateTime.fromMillisecondsSinceEpoch(0)
+                : DateTime.fromMillisecondsSinceEpoch(0);
+            final dateB = b['created_at'] != null
+                ? DateTime.tryParse(b['created_at']) ??
+                      DateTime.fromMillisecondsSinceEpoch(0)
+                : DateTime.fromMillisecondsSinceEpoch(0);
+
+            return dateB.compareTo(dateA); // Descending order
+          });
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,10 +88,7 @@ class HistoryPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     GestureDetector(
                       onTap: () async {
-                        // 1. Grab the list of assessments
                         final historyList = historyProvider.savedAssessments;
-
-                        // 2. Prevent empty backups
                         if (historyList.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -91,19 +105,13 @@ class HistoryPage extends StatelessWidget {
                             content: Text(
                               "Backing up to Google Drive... Please wait ☁️",
                             ),
-                            duration: Duration(
-                              seconds: 3,
-                            ),
+                            duration: Duration(seconds: 3),
                           ),
                         );
 
-                        // 4. Format the data into a beautiful, readable JSON string
-                        // Using JsonEncoder with indents makes the file human-readable if they open it!
                         final String jsonContent = const JsonEncoder.withIndent(
                           '  ',
                         ).convert(historyList);
-
-                        // Create a unique filename based on today's date
                         final String dateString = DateTime.now()
                             .toIso8601String()
                             .split('T')
@@ -111,7 +119,6 @@ class HistoryPage extends StatelessWidget {
                         final String fileName =
                             "Examis_AI_Backup_$dateString.json";
 
-                        // 5. Call the Drive Service!
                         final driveService = GoogleDriveService();
                         final success = await driveService.backupFileToDrive(
                           fileName: fileName,
@@ -120,7 +127,6 @@ class HistoryPage extends StatelessWidget {
 
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -171,7 +177,7 @@ class HistoryPage extends StatelessWidget {
 
               // --- 2. THE LOCAL HISTORY LIST ---
               Expanded(
-                child: history.isEmpty
+                child: sortedHistory.isEmpty
                     ? Center(
                         child: Text(
                           "No assessments generated yet.",
@@ -184,27 +190,31 @@ class HistoryPage extends StatelessWidget {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(20),
-                        itemCount: history.length,
+                        itemCount: sortedHistory.length,
                         itemBuilder: (context, index) {
-                          final item = history[index];
+                          final item = sortedHistory[index];
                           final title = item['title'] ?? "Untitled Assessment";
 
-                          // Calculate total questions for the subtitle
-                          final mcqCount = (item['mcqs'] as List?)?.length ?? 0;
-                          final shortCount =
-                              (item['shortQuestions'] as List?)?.length ?? 0;
-                          final longCount =
-                              (item['longQuestions'] as List?)?.length ?? 0;
-                          final totalQs = mcqCount + shortCount + longCount;
+                          String formattedDate = "Unknown Date";
+                          if (item['created_at'] != null) {
+                            try {
+                              DateTime date = DateTime.parse(
+                                item['created_at'],
+                              ).toLocal();
+                              formattedDate = DateFormat(
+                                'MMM dd, yyyy • h:mm a',
+                              ).format(date);
+                            } catch (e) {
+                              formattedDate = "Recently Generated";
+                            }
+                          }
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
                               color: context.surface,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: context.border,
-                              ), // Perfectly flat!
+                              border: Border.all(color: context.border),
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(
@@ -236,7 +246,8 @@ class HistoryPage extends StatelessWidget {
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  "$totalQs Questions Generated",
+                                  // 🚀 INJECTED THE TIMESTAMP HERE
+                                  formattedDate,
                                   style: TextStyle(
                                     color: context.textSecondary,
                                     fontFamily: 'Lato',
@@ -250,16 +261,18 @@ class HistoryPage extends StatelessWidget {
                                   color: AppColors.error,
                                 ),
                                 onPressed: () {
-                                  // Ask provider to delete it
-                                  historyProvider.deleteAssessment(index);
+                                  // Use the index from the ORIGINAL list to avoid deleting the wrong item
+                                  int originalIndex = history.indexOf(item);
+                                  historyProvider.deleteAssessment(
+                                    context,
+                                    originalIndex,
+                                  );
                                 },
                               ),
                               onTap: () {
-                                // 1. Load the old data into the AssessmentProvider
                                 context
                                     .read<AssessmentProvider>()
                                     .loadPastAssessment(item);
-                                // 2. Navigate to the preview screen
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(

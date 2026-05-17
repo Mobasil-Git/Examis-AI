@@ -23,7 +23,6 @@ class ImageService {
       final CroppedFile? croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        // Perfect square
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Profile Picture',

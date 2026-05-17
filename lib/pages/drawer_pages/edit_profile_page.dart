@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -22,11 +21,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController passwordController = TextEditingController();
   bool isPasswordHidden = true;
 
+  // 🚀 THE FIX 1: The Initialization Flag
+  bool _hasInitializedName = false;
+
   @override
   void initState() {
     super.initState();
-    final currentName = context.read<AuthProvider>().userName;
-    nameController = TextEditingController(text: currentName);
+    // Start empty. We will fill it in the build method safely!
+    nameController = TextEditingController();
   }
 
   @override
@@ -69,7 +71,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginPage()),
-                  (route) => false,
+                      (route) => false,
                 );
               }
             },
@@ -89,10 +91,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-    final userId = Supabase.instance.client.auth.currentUser?.id ?? "";
-    final userEmail =
-        Supabase.instance.client.auth.currentUser?.email ?? "No Email";
     final authProvider = context.watch<AuthProvider>();
+
+    // 🚀 THE FIX 2: Safe injection that only happens ONCE after the frame draws
+    if (!_hasInitializedName && authProvider.userName.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          nameController.text = authProvider.userName;
+          _hasInitializedName = true; // Never run this again!
+        }
+      });
+    }
+
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? "";
+    final userEmail = Supabase.instance.client.auth.currentUser?.email ?? "No Email";
 
     return Scaffold(
       backgroundColor: context.background,
@@ -120,8 +132,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             Center(
               child: ProfilePictureWidget(
                 userId: userId,
-                // Optional: If you are already fetching the avatar URL in your
-                // AuthProvider, pass it here! Otherwise, leave it null for now.
                 initialAvatarUrl: authProvider.avatarUrl,
               ),
             ),
@@ -207,38 +217,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 final success = await context.read<AuthProvider>().updateProfile(
                   context,
                   newName: newName,
-                  newPassword:
-                      newPassword, // Pass the password (might be empty, which is fine)
+                  newPassword: newPassword,
                 );
 
                 if (success && context.mounted) {
-                  // CHECK: Did they actually change their password?
                   if (newPassword.isNotEmpty) {
                     passwordController.clear();
-
-                    // 1. Sign them out to kill the old session token!
                     await context.read<AuthProvider>().signOut(context);
 
                     if (!context.mounted) return;
 
-                    // 2. Show a specific security message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          "Password changed successfully! Please log in again.",
-                        ),
+                        content: Text("Password changed successfully! Please log in again."),
                         backgroundColor: AppColors.success,
                       ),
                     );
 
-                    // 3. Kick them completely back to the Login Page, destroying the back-stack
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginPage()),
-                      (route) => false,
+                          (route) => false,
                     );
                   } else {
-                    // They ONLY updated their name. Just show a normal success message and stay on the page.
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Profile updated successfully!"),
@@ -258,62 +259,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 child: Center(
                   child: authProvider.isLoading
                       ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  )
                       : const Text(
-                          "Save Changes",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Lato',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                    "Save Changes",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Lato',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
             ),
 
-            // ==========================================
-            // NEW SECTION: INSTITUTE TEMPLATE UPLOAD
-            // ==========================================
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Divider(color: context.border),
-            ),
-
-            Text(
-              "Institute Templates",
-              style: TextStyle(
-                color: context.textPrimary,
-                fontFamily: 'Lato',
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Upload custom Word document headers for your generated exams.",
-              style: TextStyle(
-                color: context.textSecondary,
-                fontFamily: 'Lato',
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // The widget we built to handle the upload to Storage & Database
-            CreateInstituteForm(
-              onSuccess: () {
-                // You can add logic here if you want to update the UI
-                // after a successful upload, but the widget handles its own snackbar.
-              },
-            ),
-            // ==========================================
 
             // --- DANGER ZONE ---
             Padding(
@@ -344,7 +309,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             // --- DELETE ACCOUNT BUTTON ---
             GestureDetector(
               onTap: () => _showDeleteConfirmation(context),
-              // Triggers the safe dialog
               child: Container(
                 height: 55,
                 width: double.infinity,
@@ -366,7 +330,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
             ),
-            const SizedBox(height: 32), // Extra padding at the bottom
+
+            // 🚀 THE FIX 3: The Bumper!
+            // Ensures the Delete button isn't hidden behind your new glass nav bar
+            const SizedBox(height: 120),
           ],
         ),
       ),

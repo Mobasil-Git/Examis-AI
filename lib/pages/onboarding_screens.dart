@@ -73,17 +73,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // --- THE NEW STACK WITH THE BLOB BACKGROUND ---
                       SizedBox(
                         height: 350,
                         width: double.infinity,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            // 1. The Organic Shape (Changes based on page index)
                             BlobBackground(pageIndex: i),
 
-                            // 2. The Lottie Animation on top
                             Lottie.asset(
                               contents[i].lottiePath,
                               height: 280,
@@ -122,7 +119,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
 
-          // Bottom Navigation Area
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Row(
@@ -137,7 +133,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 GestureDetector(
                   onTap: () {
                     if (currentIndex == contents.length - 1) {
-                      // Mark onboarding as complete & go to Splash Screen
                       context.read<AppStateProvider>().completeOnboarding();
                       Navigator.pushReplacement(
                         context,
@@ -198,7 +193,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// --- THE CUSTOM FLUTTER BLOB WIDGET ---
 class BlobBackground extends StatelessWidget {
   final int pageIndex;
 
@@ -206,23 +200,19 @@ class BlobBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We define 3 distinct asymmetrical border radii to create different shapes
     final List<BorderRadius> blobShapes = [
-      // 1. Weight shifted top-left
       const BorderRadius.only(
         topLeft: Radius.circular(160),
         topRight: Radius.circular(100),
         bottomLeft: Radius.circular(100),
         bottomRight: Radius.circular(90),
       ),
-      // 2. Weight shifted bottom-right
       const BorderRadius.only(
         topLeft: Radius.circular(110),
         topRight: Radius.circular(150),
         bottomLeft: Radius.circular(140),
         bottomRight: Radius.circular(100),
       ),
-      // 3. Weight shifted top-right
       const BorderRadius.only(
         topLeft: Radius.circular(100),
         topRight: Radius.circular(170),
@@ -232,12 +222,11 @@ class BlobBackground extends StatelessWidget {
     ];
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 600), // Smoothly morphs when swiping!
+      duration: const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
       height: context.heightPercent(0.5),
       width: context.widthPercent(0.9),
       decoration: BoxDecoration(
-        // Using your super light blue theme color with a hint of transparency
         color: AppColors.primaryExtraLight.withAlpha(80),
         borderRadius: blobShapes[pageIndex],
       ),

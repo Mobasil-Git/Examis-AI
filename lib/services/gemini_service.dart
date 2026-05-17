@@ -13,25 +13,50 @@ class GeminiService {
     ),
   );
 
+  String _getMasterBloomTaxonomyRules() {
+    return """
+    UNIVERSAL EDUCATIONAL STANDARDS (STRICT ENFORCEMENT):
+    You must match the cognitive difficulty and the educational domain of EVERY single generated question to the exact 'Domain' and 'BT Level' specified in its assigned CLO.
+
+    --- DOMAIN RULES ---
+    1. Cognitive Domain: The question must test mental skills, theory, recall, and logical analysis.
+    2. Psychomotor Domain: The question MUST require the student to actively "do" something physical. In the context of Computer Science, this strictly means writing raw code, physically tracing an algorithm, or drafting a concrete technical diagram.
+    3. Affective Domain: The question must test the student's attitude, professional ethics, or understanding of societal impact.
+
+    --- BLOOM'S TAXONOMY RULES ---
+    [LEVELS 1 & 2: EASY (Knowledge & Comprehension)]
+    - Focus: Remember previously learned information and demonstrate an understanding of the facts.
+    - Verbs to use: Define, Describe, Duplicate, Identify, Label, List, Match, Memorize, Name, Order, Outline, Recognize, Relate, Recall, Repeat, Reproduce, Select, State, Classify, Convert, Defend, Discuss, Distinguish, Estimate, Explain, Express, Extend, Generalized, Give example(s), Indicate, Infer, Locate, Paraphrase, Predict, Rewrite, Review, Summarize, and Translate.
+
+    [LEVELS 3 & 4: MEDIUM (Application & Analysis)]
+    - Focus: Apply knowledge to actual situations, break down objects or ideas into simpler parts, and find evidence to support generalizations.
+    - Verbs to use: Apply, Change, Choose, Compute, Demonstrate, Discover, Dramatize, Employ, Illustrate, Interpret, Manipulate, Modify, Operate, Practice, Predict, Prepare, Produce, Relate, Schedule, Show, Sketch, Solve, Use, Write, Analyze, Appraise, Breakdown, Calculate, Categorize, Compare, Contrast, Criticize, Diagram, Differentiate, Discriminate, Distinguish, Examine, Experiment, Identify, Infer, Model, Outline, Point out, Question, Select, Separate, Subdivide, and Test.
+
+    [LEVELS 5 & 6: HARD (Synthesis & Evaluation)]
+    - Focus: Compile component ideas into a new whole or propose alternative solutions, and make and defend judgments based on internal evidence or external criteria.
+    - Verbs to use: Arrange, Assemble, Categorize, Collect, Combine, Comply, Compose, Construct, Create, Design, Develop, Devise, Explain, Formulate, Generate, Plan, Prepare, Rearrange, Reconstruct, Relate, Reorganize, Revise, Rewrite, Set up, Summarize, Synthesize, Tell, Write, Appraise, Argue, Assess, Attach, Choose, Compare, Conclude, Contrast, Defend, Describe, Discriminate, Estimate, Evaluate, Judge, Justify, Interpret, Predict, Rate, Select, Support, and Value.
+    """;
+  }
   Future<Map<String, dynamic>?> generateAssessment({
     required String documentText,
-    required String difficulty,
     required String paperCategory,
     int mcqCount = 0,
     int shortQCount = 0,
     int longQCount = 0,
     int fillBlankCount = 0,
     List<String> activeCLOs = const [],
-    bool letAIGenerateScenario = true, // <--- NEW
+    bool letAIGenerateScenario = true,
     List<Map<String, dynamic>> customScenarios = const [],
-    String customScenario = "", // <--- NEW
+    List<Map<String, dynamic>> diagramQuestions = const [],
   }) async {
+    String bloomInstruction = _getMasterBloomTaxonomyRules();
+
     String cloPromptSection = "";
     String cloJsonField = "";
 
     if (activeCLOs.isNotEmpty) {
       cloPromptSection =
-          """
+      """
       COURSE LEARNING OBJECTIVES (CLOs):
       ${activeCLOs.asMap().entries.map((e) => "CLO ${e.key + 1}: ${e.value}").join('\n')}
 
@@ -46,28 +71,31 @@ class GeminiService {
       cloJsonField = ',\n            "target_clo": "CLO 1"';
     }
 
-    // 2. Build the Paper Category Constraint
     String categoryInstruction = "";
     if (paperCategory == "Theory Based") {
-      categoryInstruction = "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
     } else if (paperCategory == "Theory + Code/Scenario") {
-      categoryInstruction = "CRITICAL PAPER STYLE: Generate a balanced mix. Half the questions should test theoretical recall, and the other half MUST present a short real-world scenario or a block of code to analyze.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: Generate a balanced mix. Half the questions should test theoretical recall, and the other half MUST present a short real-world scenario or a block of code to analyze.";
     } else if (paperCategory == "Strictly Code/Scenario") {
-      categoryInstruction = "CRITICAL PAPER STYLE: Every single question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: Every single question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
     }
 
-    // 3. Build the Custom Scenario Constraint
     String scenarioInstruction = "";
     String scenarioJsonField = "";
 
     if (paperCategory != "Theory Based" && customScenarios.isNotEmpty) {
-      // Create a formatted string of what the teacher requested
-      String formattedRequests = customScenarios.asMap().entries.map((e) {
-        return "Scenario ${e.key + 1} (Marks: ${e.value['marks']}): ${e.value['text']}";
-      }).join("\n");
+      String formattedRequests = customScenarios
+          .asMap()
+          .entries
+          .map((e) => "Scenario ${e.key + 1} (Marks: ${e.value['marks']}): ${e.value['text']}")
+          .join("\n");
 
       if (letAIGenerateScenario) {
-        scenarioInstruction = """
+        scenarioInstruction =
+        """
         SCENARIO RULE: You MUST generate ${customScenarios.length} scenarios or code blocks based on the following hints.
         
         CRITICAL CONSTRAINTS FOR GENERATION:
@@ -78,10 +106,10 @@ class GeminiService {
         $formattedRequests
         """;
       } else {
-        scenarioInstruction = "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them. Base your questions strictly on these.\n[EXACT TEXT]\n$formattedRequests";
+        scenarioInstruction =
+        "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them. Base your questions strictly on these.\n[EXACT TEXT]\n$formattedRequests";
       }
 
-      // Force Gemini to output the scenarios back to us!
       scenarioJsonField = '''
         ,
         "custom_scenarios": [
@@ -93,13 +121,48 @@ class GeminiService {
       ''';
     }
 
+    String diagramInstruction = "";
+    String diagramJsonField = "";
+
+    if (diagramQuestions.isNotEmpty) {
+      String formattedDiagrams = diagramQuestions
+          .asMap()
+          .entries
+          .map((e) => "Diagram Question ${e.key + 1} (Marks: ${e.value['marks']}, URL: ${e.value['image_url']}): ${e.value['question']}")
+          .join("\n");
+
+      diagramInstruction =
+      """
+      DIAGRAM QUESTIONS RULE: The teacher has provided pre-written diagram-based questions.
+      You MUST strictly pass these EXACT questions through to the final JSON under the "diagram_questions" array.
+      Do not change the text or the URLs.
+      [TEACHER DIAGRAMS]
+      $formattedDiagrams
+      """;
+
+      diagramJsonField =
+      '''
+        ,
+        "diagram_questions": [
+          {
+            "question": "The exact question text provided",
+            "image_url": "The exact image_url provided",
+            "marks": 5$cloJsonField
+          }
+        ]
+      ''';
+    }
+
     final prompt =
-        '''
+    '''
       You are an expert educational assessment generator.
       Analyze the following document text and generate a test based strictly on its contents.
-      Difficulty level: $difficulty.
+      
+      $bloomInstruction
+      
       $categoryInstruction
       $scenarioInstruction
+      $diagramInstruction
 
       Generate exactly $mcqCount Multiple Choice Questions, $fillBlankCount Fill in the Blank Questions, $shortQCount Short Answer Questions, and $longQCount Long Essay Questions.
 
@@ -134,7 +197,7 @@ class GeminiService {
             "question": "The long essay question text?",
             "gradingRubric": "A brief guide on what a correct answer should include"$cloJsonField
           }
-        ]
+        ]$diagramJsonField
       }
 
       Document Text:
@@ -142,6 +205,7 @@ class GeminiService {
       $documentText
       """
     ''';
+
     int maxRetries = 3;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -155,19 +219,15 @@ class GeminiService {
       } catch (e) {
         print("Gemini Generation Error on attempt $attempt: $e");
 
-        // If it's a 503 or 429 (Too Many Requests) error, we wait and try again
         if (e.toString().contains('503') || e.toString().contains('429')) {
           if (attempt == maxRetries) {
             print("Max retries reached. Failing gracefully.");
-            return null; // Give up after 3 tries so the app doesn't hang forever
+            return null;
           }
-
-          // Wait for 2 seconds on the first fail, 4 seconds on the second fail...
           int delaySeconds = attempt * 2;
           print("Waiting $delaySeconds seconds before retrying...");
           await Future.delayed(Duration(seconds: delaySeconds));
         } else {
-          // If it's a different kind of error (like a JSON formatting issue), fail immediately
           return null;
         }
       }
@@ -178,22 +238,22 @@ class GeminiService {
 
   Future<Map<String, dynamic>?> regenerateSingleQuestion({
     required String documentText,
-    required String difficulty,
     required String questionType,
-    required String paperCategory, // <--- 1. NEW PARAMETER
+    required String paperCategory,
     String? targetClo,
   }) async {
+    String bloomInstruction = _getMasterBloomTaxonomyRules();
 
-    // ==========================================
-    // 2. Build the Paper Category Constraint
-    // ==========================================
     String categoryInstruction = "";
     if (paperCategory == "Theory Based") {
-      categoryInstruction = "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: Focus strictly on definitions, principles, and theoretical concepts. Do NOT invent scenarios.";
     } else if (paperCategory == "Theory + Code/Scenario") {
-      categoryInstruction = "CRITICAL PAPER STYLE: Ensure the question leans towards a real-world scenario, case study, or code analysis rather than pure theory.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: Ensure the question leans towards a real-world scenario, case study, or code analysis rather than pure theory.";
     } else if (paperCategory == "Strictly Code/Scenario") {
-      categoryInstruction = "CRITICAL PAPER STYLE: This question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
+      categoryInstruction =
+      "CRITICAL PAPER STYLE: This question MUST present a real-world scenario, a case study, or a block of code to analyze. Do NOT ask for simple definitions or direct theoretical recall.";
     }
 
     String cloInstruction = "";
@@ -207,7 +267,8 @@ class GeminiService {
 
     String formatGuide = "";
     if (questionType == "mcqs") {
-      formatGuide = '''
+      formatGuide =
+      '''
     {
       "question": "New Question?",
       "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
@@ -215,7 +276,8 @@ class GeminiService {
     }
     ''';
     } else if (questionType == "fillInTheBlanks") {
-      formatGuide = '''
+      formatGuide =
+      '''
     {
       "question": "The new question with a ________ blank?", 
       "answer": "The correct word"$cloJsonField
@@ -243,7 +305,8 @@ class GeminiService {
     '''
     You are an expert educational assessment generator.
     Generate EXACTLY ONE new, unique question based on the document below.
-    Difficulty level: $difficulty.
+    
+    $bloomInstruction
     
     $categoryInstruction
 
@@ -270,14 +333,19 @@ class GeminiService {
         print("Gemini Generation Error on attempt $attempt: $e");
         String errorString = e.toString();
 
-        if (errorString.contains('503') || errorString.contains('429') || errorString.contains('Quota exceeded')) {
+        if (errorString.contains('503') ||
+            errorString.contains('429') ||
+            errorString.contains('Quota exceeded')) {
           if (attempt == maxRetries) {
-            throw Exception("Rate Limit Hit. Please wait a minute before generating again.");
+            throw Exception(
+              "Rate Limit Hit. Please wait a minute before generating again.",
+            );
           }
 
-          // 👇 CHANGED: Wait 25 seconds to guarantee we clear Google's 20-second timeout 👇
           int delaySeconds = 25;
-          print("Rate limit hit! Waiting $delaySeconds seconds for Google servers to cool down...");
+          print(
+            "Rate limit hit! Waiting $delaySeconds seconds for Google servers to cool down...",
+          );
           await Future.delayed(Duration(seconds: delaySeconds));
         } else {
           return null;
@@ -287,100 +355,47 @@ class GeminiService {
     return null;
   }
 
-  Future<List<String>> extractCLOsFromImage(File imageFile) async {
-    final prompt = '''
-      You are an expert curriculum assistant. 
-      Analyze this image (which is likely a syllabus or exam paper) and extract all Course Learning Objectives (CLOs), Learning Outcomes, or main topics.
+  Future<Map<String, dynamic>?> extractCourseSyllabusFromImage(File imageFile) async {
+    final String extractionPrompt = """
+      You are a university curriculum data extractor. Analyze this syllabus image.
+      Extract the course details and all Course Learning Objectives (CLOs).
+
+      You MUST return ONLY a valid JSON object with the following exact structure, no markdown formatting, no extra text:
+      {
+        "course_code": "Extracted code (e.g., CS-304)",
+        "course_title": "Extracted title (e.g., Object Oriented Programming)",
+        "clos": [
+          {
+            "description": "The objective text",
+            "domain": "The domain letter (e.g., C for Cognitive)",
+            "bt_level": 2, 
+            "plo_id": 3 
+          }
+        ]
+      }
       
-      CRITICAL RULE: Return ONLY a valid JSON array of strings. Do not include markdown formatting like ```json. Do not say "Here are the CLOs". 
-      
-      Example output format:
-      ["Understand the basics of OOP", "Apply polymorphism in Java", "Analyze time complexity"]
-    ''';
+      CRITICAL: If the image doesn't explicitly state the course code or title, make your best guess or leave it blank, but preserve the JSON structure. If the domain, bt_level, or plo_id are missing, default them to "C", 2, and 1 respectively.
+    """;
 
     try {
       final imageBytes = await imageFile.readAsBytes();
-
-      // We pass BOTH text and image data to Gemini
       final content = [
-        Content.multi([
-          TextPart(prompt),
-          DataPart('image/jpeg', imageBytes),
-        ])
+        Content.multi([TextPart(extractionPrompt), DataPart('image/jpeg', imageBytes)]),
       ];
 
       final response = await _model.generateContent(content);
 
-      if (response.text == null || response.text!.isEmpty) return [];
+      if (response.text == null || response.text!.isEmpty) return null;
 
-      // Clean the response just in case Gemini disobeys and adds markdown
-      String cleanJson = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
+      String cleanJson = response.text!
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
 
-      List<dynamic> parsedList = jsonDecode(cleanJson);
-      return parsedList.map((e) => e.toString()).toList();
-
+      return jsonDecode(cleanJson) as Map<String, dynamic>;
     } catch (e) {
-      print("Vision Extraction Error: $e");
-      return [];
+      print("Syllabus Extraction Error: $e");
+      return null;
     }
   }
 }
-
-// class GeminiService {
-//   // --- MOCK FULL GENERATION ---
-//   Future<Map<String, dynamic>?> generateAssessment({
-//     required String documentText,
-//     required String difficulty,
-//     int mcqCount = 0,
-//     int shortQCount = 0,
-//     int longQCount = 0,
-//   }) async {
-//     // Fake a 3-second network loading time
-//     await Future.delayed(const Duration(seconds: 3));
-//
-//     return {
-//       "title": "Mock App Testing Assessment",
-//       "mcqs": List.generate(mcqCount, (index) => {
-//         "question": "This is a fake AI question number ${index + 1}?",
-//         "options": ["Fake A", "Fake B", "Fake C", "Fake D"],
-//         "correctAnswer": "Fake A"
-//       }),
-//       "shortQuestions": List.generate(shortQCount, (index) => {
-//         "question": "Fake short question ${index + 1}?",
-//         "idealAnswer": "This is a fake ideal answer for testing."
-//       }),
-//       "longQuestions": List.generate(longQCount, (index) => {
-//         "question": "Fake long essay question ${index + 1}?",
-//         "gradingRubric": "Look for the fake keywords in the answer."
-//       })
-//     };
-//   }
-//
-//   // --- MOCK SINGLE REGENERATION ---
-//   Future<Map<String, dynamic>?> regenerateSingleQuestion({
-//     required String documentText,
-//     required String difficulty,
-//     required String questionType,
-//   }) async {
-//     // Fake a 2-second loading time to test your cool skeleton animation!
-//     await Future.delayed(const Duration(seconds: 2));
-//
-//     if (questionType == "mcqs") {
-//       return {
-//         "question": "FRESHLY REGENERATED MCQ! IT WORKS!",
-//         "options": ["New A", "New B", "New C", "New D"],
-//         "correctAnswer": "New A"
-//       };
-//     } else if (questionType == "shortQuestions") {
-//       return {
-//         "question": "FRESHLY REGENERATED SHORT QUESTION!",
-//         "idealAnswer": "Fresh fake answer."
-//       };
-//     } else {
-//       return {
-//         "question": "FRESHLY REGENERATED LONG QUESTION!",
-//         "gradingRubric": "Fresh fake rubric."
-//       };
-//     }
-//   }
-// }

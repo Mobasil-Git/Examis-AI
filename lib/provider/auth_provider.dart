@@ -12,20 +12,29 @@ class AuthProvider extends ChangeNotifier {
   String _userName = "Teacher";
   String? _avatarUrl;
 
+  // 🚀 NEW: Local Storage Variables
+  int _storageUsedBytes = 0;
+  int _storageLimitBytes = 52428800; // Default 50MB
+
   String? get avatarUrl => _avatarUrl;
 
   bool get isLoading => _isLoading;
 
   String get userName => _userName;
 
+  int get storageUsedBytes => _storageUsedBytes;
+
+  int get storageLimitBytes => _storageLimitBytes;
+
   AuthProvider() {
     _supabase.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
       if (event == AuthChangeEvent.initialSession ||
           event == AuthChangeEvent.signedIn) {
-        _fetchUserProfile();
+        fetchUserProfile(); // Made this public!
       } else if (event == AuthChangeEvent.signedOut) {
         _userName = "Teacher";
+        _storageUsedBytes = 0;
       }
     });
   }
@@ -35,24 +44,34 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetchUserProfile() async {
+  Future<void> fetchUserProfile() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         final response = await Supabase.instance.client
             .from('profiles')
-            .select('full_name, avatar_url')
+            .select(
+              'full_name, avatar_url, storage_used_bytes, storage_limit_bytes',
+            )
             .eq('id', user.id)
             .single();
 
         _userName = response['full_name'] ?? "User";
         _avatarUrl = response['avatar_url'];
+        _storageUsedBytes = response['storage_used_bytes'] ?? 0;
+        _storageLimitBytes = response['storage_limit_bytes'] ?? 52428800;
 
         notifyListeners();
       }
     } catch (e) {
       print("Error loading profile: $e");
     }
+  }
+
+  void adjustStorageLocal(int byteDifference) {
+    _storageUsedBytes += byteDifference;
+    if (_storageUsedBytes < 0) _storageUsedBytes = 0;
+    notifyListeners();
   }
 
   Future<bool> signUp(
@@ -91,9 +110,7 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _supabase.auth.signInWithPassword(email: email, password: password);
-
-      await _fetchUserProfile();
-
+      await fetchUserProfile();
       _setLoading(false);
       return true;
     } on AuthException catch (e) {
@@ -145,7 +162,7 @@ class AuthProvider extends ChangeNotifier {
         await _supabase.auth.updateUser(UserAttributes(password: newPassword));
       }
 
-      await _fetchUserProfile();
+      await fetchUserProfile();
 
       _setLoading(false);
       return true;
@@ -160,9 +177,7 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _supabase.rpc('delete_user');
-
       await signOut(context);
-
       _setLoading(false);
       return true;
     } catch (e) {
@@ -204,7 +219,6 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _supabase.auth.resetPasswordForEmail(email);
-
       _setLoading(false);
 
       if (!context.mounted) return false;
@@ -239,9 +253,7 @@ class AuthProvider extends ChangeNotifier {
         token: code,
         email: email,
       );
-
       _setLoading(false);
-
       return true;
     } on AuthException catch (e) {
       _showError(context, e.message);
@@ -258,7 +270,6 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _supabase.auth.updateUser(UserAttributes(password: newPassword));
-
       _setLoading(false);
       return true;
     } catch (e) {

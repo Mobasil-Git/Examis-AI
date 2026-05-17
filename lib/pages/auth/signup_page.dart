@@ -28,8 +28,6 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  // Helper widget for Social Buttons
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,7 +73,6 @@ class _SignupPageState extends State<SignupPage> {
                 ),
                 SizedBox(height: context.heightPercent(0.045)),
 
-                // --- Signup Form Card ---
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -87,7 +84,7 @@ class _SignupPageState extends State<SignupPage> {
                     children: [
                       UniversalTextField(
                         controller: nameController,
-                        labelText: "Full Name",
+                        hintText: "Full Name",
                         prefixIcon: Icon(
                           Icons.badge_outlined,
                           color: context.textSecondary,
@@ -96,7 +93,7 @@ class _SignupPageState extends State<SignupPage> {
                       SizedBox(height: context.heightPercent(0.017)),
                       UniversalTextField(
                         controller: emailController,
-                        labelText: "Email Address",
+                        hintText:  "Email Address",
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: Icon(
                           Icons.email_outlined,
@@ -106,7 +103,7 @@ class _SignupPageState extends State<SignupPage> {
                       SizedBox(height: context.heightPercent(0.017)),
                       UniversalTextField(
                         controller: passwordController,
-                        labelText: "Password",
+                        hintText: "Password",
                         obscureText: isPasswordHidden,
                         prefixIcon: Icon(
                           Icons.lock_outline,
@@ -129,7 +126,6 @@ class _SignupPageState extends State<SignupPage> {
 
                       SizedBox(height: context.heightPercent(0.033)),
 
-                      // --- SIGNUP BUTTON ---
                       GestureDetector(
                         onTap: () async {
                           FocusScope.of(context).unfocus();
@@ -201,8 +197,6 @@ class _SignupPageState extends State<SignupPage> {
                       ),
 
                       SizedBox(height: context.heightPercent(0.03)),
-
-                      // --- THE NEW SOCIAL LOGIN SECTION ---
                       Row(
                         children: [
                           Expanded(child: Divider(color: context.border)),
@@ -224,10 +218,12 @@ class _SignupPageState extends State<SignupPage> {
                       SizedBox(height: context.heightPercent(0.025)),
 
                       BuildSocialIcon(
-                        image: 'assets/social_icons/google.png', // Assuming you added the PNG!
-                        text: "Continue with Google", // The new text parameter
+                        image: 'assets/social_icons/google.png',
+                        text: "Continue with Google",
                         onTap: () async {
-                          await context.read<AuthProvider>().signInWithGoogle(context);
+                          await context.read<AuthProvider>().signInWithGoogle(
+                            context,
+                          );
                         },
                       ),
                     ],
@@ -235,8 +231,6 @@ class _SignupPageState extends State<SignupPage> {
                 ),
 
                 SizedBox(height: context.heightPercent(0.025)),
-
-                // --- Switch to Login ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

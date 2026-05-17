@@ -6,7 +6,17 @@ class ProfilePictureWidget extends StatefulWidget {
   final String userId;
   final String? initialAvatarUrl;
 
-  const ProfilePictureWidget({super.key, required this.userId, this.initialAvatarUrl});
+  // 🚀 NEW: Added radius and badge toggle to make it truly universal!
+  final double radius;
+  final bool showEditBadge;
+
+  const ProfilePictureWidget({
+    super.key,
+    required this.userId,
+    this.initialAvatarUrl,
+    this.radius = 60.0, // Defaults to 120x120 so your Edit Profile page stays the same
+    this.showEditBadge = true, // Defaults to showing the camera
+  });
 
   @override
   State<ProfilePictureWidget> createState() => _ProfilePictureWidgetState();
@@ -21,6 +31,15 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
     super.initState();
     _currentAvatarUrl = widget.initialAvatarUrl;
   }
+  @override
+  void didUpdateWidget(covariant ProfilePictureWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialAvatarUrl != oldWidget.initialAvatarUrl) {
+      setState(() {
+        _currentAvatarUrl = widget.initialAvatarUrl;
+      });
+    }
+  }
 
   Future<void> _updateProfilePicture() async {
     setState(() => _isUploading = true);
@@ -29,7 +48,6 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
 
     if (newUrl != null) {
       setState(() {
-        // We append a timestamp so CachedNetworkImage knows the URL "changed" and fetches the new one!
         _currentAvatarUrl = "$newUrl?t=${DateTime.now().millisecondsSinceEpoch}";
       });
     }
@@ -39,6 +57,9 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate total size based on radius
+    final double size = widget.radius * 2;
+
     return GestureDetector(
       onTap: _isUploading ? null : _updateProfilePicture,
       child: Stack(
@@ -46,54 +67,57 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
         children: [
           ClipOval(
             child: Container(
-              width: 120,
-              height: 120,
-              color: Colors.grey[300], // Fallback background
+              width: size,
+              height: size,
+              color: Colors.white.withAlpha(32), // Adapted to look good on dark headers too
               child: _currentAvatarUrl == null
-                  ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                  ? Icon(Icons.person, size: widget.radius, color: Colors.white)
                   : CachedNetworkImage(
                 imageUrl: _currentAvatarUrl!,
                 fit: BoxFit.cover,
-                // Shows a tiny spinner while the image downloads from Supabase
-                placeholder: (context, url) => const Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                placeholder: (context, url) => Padding(
+                  padding: EdgeInsets.all(widget.radius / 2),
+                  child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 ),
-                // Shows a red error icon if the link is broken
-                errorWidget: (context, url, error) => const Icon(
+                errorWidget: (context, url, error) => Icon(
                   Icons.broken_image,
-                  color: Colors.red,
-                  size: 40,
+                  color: Colors.redAccent,
+                  size: widget.radius / 1.5,
                 ),
               ),
             ),
           ),
 
-          // The Edit Icon Badge
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.blueAccent, // Use your primary color here
-                shape: BoxShape.circle,
+          // 🚀 THE EDIT ICON BADGE (Only shows if requested)
+          if (widget.showEditBadge)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.all(widget.radius * 0.15),
+                decoration: const BoxDecoration(
+                  color: Colors.blueAccent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.camera_alt, color: Colors.white, size: widget.radius * 0.35),
               ),
-              child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
             ),
-          ),
 
           // Uploading Spinner Overlay
           if (_isUploading)
             Container(
-              width: 120,
-              height: 120,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.black.withOpacity(0.5),
               ),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              child: Center(
+                child: SizedBox(
+                  width: widget.radius * 0.8,
+                  height: widget.radius * 0.8,
+                  child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                ),
               ),
             ),
         ],
