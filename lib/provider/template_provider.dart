@@ -56,11 +56,16 @@ class TemplateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteTemplate(int id) async {
-    final success = await _service.deleteInstitute(id);
+  Future<bool> deleteTemplate(dynamic id) async {
+    bool success = await _service.deleteInstitute(id);
+
     if (success) {
-      templates.removeWhere((t) => t['id'] == id);
+      // Compare them safely
+      templates.removeWhere((template) => template['id'].toString() == id.toString());
+      _totalTemplates = templates.length;
       notifyListeners();
+      return true;
     }
+    return false;
   }
 }

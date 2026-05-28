@@ -25,7 +25,11 @@ class DiagramInputSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.insert_photo_outlined, color: AppColors.primary, size: 20),
+              const Icon(
+                Icons.insert_photo_outlined,
+                color: AppColors.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 "Diagrams & Visuals",
@@ -38,7 +42,10 @@ class DiagramInputSection extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(50),
                   color: AppColors.primary.withAlpha(35),
@@ -67,30 +74,52 @@ class DiagramInputSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.primary.withAlpha(10),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withAlpha(30), style: BorderStyle.solid),
+                border: Border.all(
+                  color: AppColors.primary.withAlpha(30),
+                  style: BorderStyle.solid,
+                ),
               ),
               child: Column(
                 children: [
-                  Icon(Icons.image_search, color: AppColors.primary.withAlpha(150), size: 32),
+                  Icon(
+                    Icons.image_search,
+                    color: AppColors.primary.withAlpha(150),
+                    size: 32,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     "No diagrams added yet.",
-                    style: TextStyle(color: context.textSecondary, fontFamily: 'Lato', fontSize: 13),
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontFamily: 'Lato',
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () => provider.addDiagramQuestion(),
-                    icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                    icon: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 18,
+                    ),
                     label: const Text(
                       "Add Diagram Question",
-                      style: TextStyle(fontFamily: 'Lato', fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontFamily: 'Lato',
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       foregroundColor: Colors.white,
                       backgroundColor: AppColors.primary,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
@@ -115,12 +144,14 @@ class DiagramInputSection extends StatelessWidget {
                     children: [
                       // --- Inputs Row ---
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start, // Align to top so label drops correctly
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        // Align to top so label drops correctly
                         children: [
                           Expanded(
                             flex: 3,
                             child: UniversalTextField(
-                              controller: provider.diagramTextControllers[index],
+                              controller:
+                                  provider.diagramTextControllers[index],
                               labelText: "Question prompt",
                               hintText: "e.g., Label the diagram",
                             ),
@@ -129,19 +160,26 @@ class DiagramInputSection extends StatelessWidget {
                           Expanded(
                             flex: 1,
                             child: UniversalTextField(
-                              controller: provider.diagramMarksControllers[index],
+                              controller:
+                                  provider.diagramMarksControllers[index],
                               labelText: "Marks",
                               hintText: "5",
-                              textAlign: TextAlign.center, // 🚀 CENTERED
+                              textAlign: TextAlign.center,
+                              // 🚀 CENTERED
                               keyboardType: TextInputType.number,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Padding(
-                            padding: const EdgeInsets.only(top: 24.0), // Pushes icon down to align with input field
+                            padding: const EdgeInsets.only(top: 24.0),
+                            // Pushes icon down to align with input field
                             child: IconButton(
-                              onPressed: () => provider.removeDiagramQuestion(index),
-                              icon: const Icon(Icons.remove_circle_outline, color: AppColors.error),
+                              onPressed: () =>
+                                  provider.removeDiagramQuestion(index),
+                              icon: const Icon(
+                                Icons.remove_circle_outline,
+                                color: AppColors.error,
+                              ),
                               tooltip: "Remove Diagram",
                             ),
                           ),
@@ -154,31 +192,50 @@ class DiagramInputSection extends StatelessWidget {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => provider.pickDiagramImage(index, ImageSource.gallery),
+                            onTap: () => provider.pickDiagramImage(
+                              index,
+                              ImageSource.gallery,
+                            ),
                             child: Container(
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
                                 color: context.background,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: context.border, width: 1.5),
+                                border: Border.all(
+                                  color: context.border,
+                                  width: 1.5,
+                                ),
                               ),
                               child: selectedImage != null
                                   ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(selectedImage, fit: BoxFit.cover),
-                              )
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.file(
+                                        selectedImage,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
                                   : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_photo_alternate_outlined, color: context.textSecondary, size: 24),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Upload",
-                                    style: TextStyle(fontSize: 10, fontFamily: 'Lato', color: context.textSecondary, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          color: context.textSecondary,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "Upload",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontFamily: 'Lato',
+                                            color: context.textSecondary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ),
 
@@ -189,7 +246,11 @@ class DiagramInputSection extends StatelessWidget {
                               children: [
                                 Text(
                                   "Attach an image for the AI to process and include in the final Word document.",
-                                  style: TextStyle(color: context.textSecondary, fontFamily: 'Lato', fontSize: 12),
+                                  style: TextStyle(
+                                    color: context.textSecondary,
+                                    fontFamily: 'Lato',
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
@@ -198,14 +259,20 @@ class DiagramInputSection extends StatelessWidget {
                                       context,
                                       icon: Icons.photo_library,
                                       label: "Gallery",
-                                      onTap: () => provider.pickDiagramImage(index, ImageSource.gallery),
+                                      onTap: () => provider.pickDiagramImage(
+                                        index,
+                                        ImageSource.gallery,
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
                                     _buildActionChip(
                                       context,
                                       icon: Icons.camera_alt,
                                       label: "Camera",
-                                      onTap: () => provider.pickDiagramImage(index, ImageSource.camera),
+                                      onTap: () => provider.pickDiagramImage(
+                                        index,
+                                        ImageSource.camera,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -224,10 +291,18 @@ class DiagramInputSection extends StatelessWidget {
 
             TextButton.icon(
               onPressed: () => provider.addDiagramQuestion(),
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 20),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: AppColors.primary,
+                size: 20,
+              ),
               label: const Text(
                 "Add Another Diagram",
-                style: TextStyle(color: AppColors.primary, fontFamily: 'Lato', fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontFamily: 'Lato',
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -236,7 +311,12 @@ class DiagramInputSection extends StatelessWidget {
     );
   }
 
-  Widget _buildActionChip(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildActionChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -254,7 +334,12 @@ class DiagramInputSection extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(color: AppColors.primary, fontFamily: 'Lato', fontSize: 12, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontFamily: 'Lato',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),

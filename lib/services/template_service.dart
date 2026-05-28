@@ -21,47 +21,63 @@ class TemplateService {
     }
   }
 
-  Future<bool> createInstituteProfile(String instituteName, File file) async {
+  Future<String> createInstituteProfile(String instituteName, File file) async {
     try {
       final user = _supabase.auth.currentUser;
-      if (user == null)
-        throw Exception("User must be logged in to create an institute.");
+      if (user == null) return "User must be logged in.";
 
+      final String originalFileName = file.path
+          .split(RegExp(r'[/\\]'))
+          .last
+          .replaceAll(RegExp(r'\s+'), '_');
+
+      final existingTemplates = await _supabase
+          .from('institutes')
+          .select('institute_name, template_url')
+          .eq('user_id', user.id);
+
+      // 3. The Double-Check Loop
+      for (var template in existingTemplates) {
+
+        // Check A: Did they type the exact same Institute Name?
+        if (template['institute_name'].toString().trim().toLowerCase() == instituteName.trim().toLowerCase()) {
+          return "An institute with the name '${instituteName.trim()}' already exists.";
+        }
+
+        // Check B: Did they select a file with the exact same name?
+        if (template['template_url'].toString().contains(originalFileName)) {
+          return "You have already uploaded a file named '$originalFileName'. Please rename it or choose a different one.";
+        }
+      }
+
+      // 4. Upload with the ORIGINAL file name attached so our check works in the future!
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final cleanName = instituteName
-          .replaceAll(RegExp(r'\s+'), '_')
-          .toLowerCase();
-      final fileName = '${user.id}_${cleanName}_$timestamp.docx';
+      final storageFileName = '${user.id}_${timestamp}_$originalFileName';
 
       await _supabase.storage
           .from('templates')
-          .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
+          .upload(storageFileName, file, fileOptions: const FileOptions(upsert: true));
 
-      final publicUrl = _supabase.storage
-          .from('templates')
-          .getPublicUrl(fileName);
+      final publicUrl = _supabase.storage.from('templates').getPublicUrl(storageFileName);
 
+      // 5. Insert the new row
       await _supabase.from('institutes').insert({
         'user_id': user.id,
-        'institute_name': instituteName,
+        'institute_name': instituteName.trim(),
         'template_url': publicUrl,
       });
 
-      return true;
+      return "success";
     } catch (e) {
       print("Institute Creation Error: $e");
-      return false;
+      return "An error occurred while uploading. Please try again.";
     }
   }
-
-  // --- Add this to TemplateService ---
-
   Future<List<Map<String, dynamic>>> fetchUserInstitutes() async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return [];
 
-      // Fetch all templates for this user, newest first
       final response = await _supabase
           .from('institutes')
           .select()
@@ -75,13 +91,34 @@ class TemplateService {
     }
   }
 
-  Future<bool> deleteInstitute(int id) async {
+  // 🚀 CHANGED: Accepts `dynamic` so we don't accidentally cast Ints to Strings!
+  Future<bool> deleteInstitute(dynamic id) async {
     try {
-      // Note: In a full app, you should also delete the file from the storage bucket here!
-      await _supabase.from('institutes').delete().eq('id', id);
+      final response = await _supabase
+          .from('institutes')
+          .select('template_url')
+          .eq('id', id)
+          .single();
+
+      final String? templateUrl = response['template_url'];
+
+      if (templateUrl != null && templateUrl.isNotEmpty) {
+        Uri uri = Uri.parse(templateUrl);
+        String fileName = uri.pathSegments.last;
+        await _supabase.storage.from('templates').remove([fileName]);
+      }
+
+      // 🚀 ADDED .select() at the end to ensure it ACTUALLY deleted something!
+      final deletedRow = await _supabase.from('institutes').delete().eq('id', id).select();
+
+      if (deletedRow.isEmpty) {
+        print("WARNING: No row was deleted. Check your RLS DELETE policies!");
+        return false;
+      }
+
       return true;
     } catch (e) {
-      print("Delete Institute Error: $e");
+      print("CRITICAL Delete Institute Error: $e");
       return false;
     }
   }

@@ -10,30 +10,55 @@ class ExportService {
       Map<String, dynamic> data,
       String templateUrl,
       bool showCloTags,
+      String examType,
+      int totalMarks,
+      String courseTitle,
+      String creditHours,
+      String departmentName,
       ) async {
     try {
       final apiUrl = Uri.parse(AppSecrets.documentAPI_KEY);
+
+      final Map<String, dynamic> marksData = data['marks'] ?? {
+        "mcq_points": 1,
+        "short_points": 3,
+        "long_points": 10,
+        "fib_points": 1,
+      };
+      final int mcqCount = (data['mcqs'] as List?)?.length ?? 0;
+      final int fibCount = (data['fillInTheBlanks'] as List?)?.length ?? 0;
+      final int shortCount = (data['shortQuestions'] as List?)?.length ?? 0;
+      final int longCount = (data['longQuestions'] as List?)?.length ?? 0;
+
+      final bool hasObjective = (mcqCount > 0 || fibCount > 0);
+      final bool hasSubjective = (shortCount > 0 || longCount > 0);
+
+      String paperType = "Standard";
+      if (hasObjective && hasSubjective) {
+        paperType = "Subjective + Objective";
+      } else if (hasObjective) {
+        paperType = "Objective";
+      } else if (hasSubjective) {
+        paperType = "Subjective";
+      }
 
       final payload = {
         "template_url": templateUrl,
         "show_clo_tags": showCloTags,
         "exam_data": {
           "title": data['title'] ?? "Assessment",
-          "marks":
-          data['marks'] ??
-              {
-                "mcq_points": 1,
-                "short_points": 3,
-                "long_points": 10,
-                "fib_points": 1,
-              },
+          "department": departmentName,
+          "exam_type": examType,
+          "total_marks": totalMarks,
+          "course_title": courseTitle,
+          "credit_hours": creditHours,
+          "paper_type": paperType,
+          "marks": marksData,
           "custom_scenarios": data['custom_scenarios'] ?? [],
           "mcqs": data['mcqs'] ?? [],
           "shortQuestions": data['shortQuestions'] ?? [],
           "longQuestions": data['longQuestions'] ?? [],
           "fillInTheBlanks": data['fillInTheBlanks'] ?? [],
-
-          // 👇 THE MISSING PIECE! 👇
           "diagram_questions": data['diagram_questions'] ?? [],
         },
       };

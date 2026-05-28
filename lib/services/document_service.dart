@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'package:examis_ai/core/secrets.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 
 class DocumentService {
-  final String _extractUrl = 'https://examis-text-extractor.vercel.app/extract-text';
+  final String _extractUrl = AppSecrets.documentExtractionAPI_KEY;
 
   Future<String?> extractTextFromFiles(List<PlatformFile> files) async {
     try {

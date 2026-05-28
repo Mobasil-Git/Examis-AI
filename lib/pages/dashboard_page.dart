@@ -23,86 +23,90 @@ class _DashboardPageState extends State<DashboardPage> {
   Key _refreshKey = UniqueKey();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AssessmentProvider>().fetchDepartments();
+      context.read<AssessmentProvider>().fetchBatches();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: context.background,
-        body: RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () async {
-            await context.read<AuthProvider>().fetchUserProfile();
-            await context.read<HistoryProvider>().loadHistory();
-            await context.read<AssessmentProvider>().clearData();
+    return Scaffold(
+      backgroundColor: context.background,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          await context.read<AuthProvider>().fetchUserProfile();
+          await context.read<HistoryProvider>().loadHistory();
+          await context.read<AssessmentProvider>().clearData();
 
-            setState(() {
-              _refreshKey = UniqueKey();
-            });
-          },
-          child: CustomScrollView(
-            key: _refreshKey,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    FadeScaleAnimation(
-                      delay: 800,
-                      child: const ProfileSection(),
+          setState(() {
+            _refreshKey = UniqueKey();
+          });
+        },
+        child: CustomScrollView(
+          key: _refreshKey,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  FadeScaleAnimation(delay: 800, child: const ProfileSection()),
+
+                  SizedBox(height: context.heightPercent(0.017)),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FadeScaleAnimation(
+                      delay: 950,
+                      child: UploadSection(),
                     ),
+                  ),
 
-                    SizedBox(height: context.heightPercent(0.017)),
+                  SizedBox(height: context.heightPercent(0.017)),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FadeScaleAnimation(
+                      delay: 1100,
+                      child: const CloInputSection(),
+                    ),
+                  ),
+
+                  SizedBox(height: context.heightPercent(0.017)),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FadeScaleAnimation(
+                      delay: 1250,
+                      child: const DiagramInputSection(),
+                    ),
+                  ),
+
+                  SizedBox(height: context.heightPercent(0.017)),
+
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        bottom: 12,
+                      ),
                       child: FadeScaleAnimation(
-                        delay: 950,
-                        child: UploadSection(),
+                        delay: 1400,
+                        child: GenerateSection(),
                       ),
                     ),
-
-                    SizedBox(height: context.heightPercent(0.017)),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: FadeScaleAnimation(
-                        delay: 1100,
-                        child: const CloInputSection(),
-                      ),
-                    ),
-
-                    SizedBox(height: context.heightPercent(0.017)),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: FadeScaleAnimation(
-                        delay: 1250,
-                        child: const DiagramInputSection(),
-                      ),
-                    ),
-
-                    SizedBox(height: context.heightPercent(0.017)),
-
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          bottom: 12,
-                        ),
-                        child: FadeScaleAnimation(
-                          delay: 1400,
-                          child: GenerateSection(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

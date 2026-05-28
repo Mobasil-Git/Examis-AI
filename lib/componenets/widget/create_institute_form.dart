@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 class CreateInstituteForm extends StatefulWidget {
   final VoidCallback onSuccess;
 
-  const CreateInstituteForm({Key? key, required this.onSuccess}) : super(key: key);
+  const CreateInstituteForm({Key? key, required this.onSuccess})
+    : super(key: key);
 
   @override
   State<CreateInstituteForm> createState() => _CreateInstituteFormState();
@@ -31,13 +32,14 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
   }
 
   Future<void> _submitForm() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please select a .docx template file.', style: TextStyle(color: Colors.white)),
-          backgroundColor: context.error,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -45,33 +47,39 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
 
     setState(() => _isLoading = true);
 
-    final success = await _templateService.createInstituteProfile(
-      _nameController.text.trim(),
-      _selectedFile!,
-    );
+    try {
+      // 🚀 The service now returns a message instead of just true/false!
+      final resultMessage = await _templateService.createInstituteProfile(
+        _nameController.text.trim(),
+        _selectedFile!,
+      );
 
-    setState(() => _isLoading = false);
-
-    if (success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Institute Profile created successfully!', style: TextStyle(color: Colors.white)),
-            backgroundColor: AppColors.success,
-          ),
-        );
+      if (resultMessage == "success") {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Institute Profile created successfully!', style: TextStyle(color: Colors.white)),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+        _nameController.clear();
+        setState(() => _selectedFile = null);
+        widget.onSuccess();
+      } else {
+        // 🚀 SHOW THE EXACT ERROR MESSAGE FROM THE SERVICE
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(resultMessage, style: const TextStyle(color: Colors.white)),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
-      _nameController.clear();
-      setState(() => _selectedFile = null);
-      widget.onSuccess();
-    } else {
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to create profile. Please try again.', style: TextStyle(color: Colors.white)),
-            backgroundColor: context.error,
-          ),
-        );
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -80,9 +88,13 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: context.surface,
+      // Fallbacks added for context extensions just to be safe
+      color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: context.border, width: 1.5),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withAlpha(50),
+          width: 1.5,
+        ),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
@@ -96,10 +108,10 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
               Text(
                 "Add New Institute",
                 style: TextStyle(
-                    color: context.textPrimary,
-                    fontFamily: 'Lato',
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontFamily: 'Lato',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
@@ -108,9 +120,11 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
                 controller: _nameController,
                 labelText: "Institute Name",
                 hintText: "e.g., MNS University",
-                prefixIcon: Icon(Icons.account_balance_outlined, color: context.textSecondary),
-                validator: (value) =>
-                value != null && value.trim().isNotEmpty
+                prefixIcon: Icon(
+                  Icons.account_balance_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                validator: (value) => value != null && value.trim().isNotEmpty
                     ? null
                     : "Please enter a name",
               ),
@@ -122,8 +136,12 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
                 child: OutlinedButton.icon(
                   onPressed: _pickFile,
                   icon: Icon(
-                    _selectedFile != null ? Icons.check_circle : Icons.attach_file,
-                    color: _selectedFile != null ? AppColors.success : context.textSecondary,
+                    _selectedFile != null
+                        ? Icons.check_circle
+                        : Icons.attach_file,
+                    color: _selectedFile != null
+                        ? AppColors.success
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   label: Text(
                     _selectedFile != null
@@ -132,19 +150,26 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: _selectedFile != null ? context.textPrimary : context.textSecondary,
+                      color: _selectedFile != null
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontFamily: 'Lato',
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 16,
+                    ),
                     alignment: Alignment.centerLeft,
                     side: BorderSide(
-                        color: _selectedFile != null ? AppColors.success : context.border,
-                        width: 1.5
+                      color: _selectedFile != null
+                          ? AppColors.success
+                          : Theme.of(context).colorScheme.outline.withAlpha(50),
+                      width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18), // Matched UniversalTextField
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
                 ),
@@ -168,20 +193,21 @@ class _CreateInstituteFormState extends State<CreateInstituteForm> {
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                      width: 24, height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: Colors.white,
-                      )
-                  )
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text(
-                    "Save Institute Profile",
-                    style: TextStyle(
-                      fontFamily: 'Lato',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                          "Save Institute Profile",
+                          style: TextStyle(
+                            fontFamily: 'Lato',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ),
             ],

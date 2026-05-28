@@ -16,7 +16,9 @@ class ManualCourseEntryPage extends StatefulWidget {
 class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
   final _codeController = TextEditingController();
   final _titleController = TextEditingController();
+  final _creditHoursController = TextEditingController();
   bool _isPublishing = false;
+  String? _selectedDepartmentId;
 
   // We start them off with one empty CLO
   final List<Map<String, dynamic>> _clos = [
@@ -38,10 +40,32 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
   }
 
   Future<void> _publishToCatalog() async {
-    if (_codeController.text.isEmpty || _titleController.text.isEmpty) {
+    final provider = context.read<AssessmentProvider>();
+    if (_selectedDepartmentId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Course Code and Title are required."),
+          content: Text("Please select a Department or Shared Pool."),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    if (provider.selectedBatch == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please go back and select a Session Batch first!"),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (_codeController.text.isEmpty ||
+        _titleController.text.isEmpty ||
+        _creditHoursController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Course Code, Title, and Credit Hours are required."),
           backgroundColor: AppColors.error,
         ),
       );
@@ -55,13 +79,15 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // 1. Insert Master Course
       final courseResponse = await supabase
           .from('master_courses')
           .insert({
-            'course_code': _codeController.text.trim().toUpperCase(),
-            'title': _titleController.text.trim(),
-          })
+        'batch_id': provider.selectedBatch!['id'],
+        'department_id': _selectedDepartmentId,
+        'course_code': _codeController.text.trim().toUpperCase(),
+        'title': _titleController.text.trim(),
+        'credit_hours': _creditHoursController.text.trim(),
+      })
           .select('id')
           .single();
 
@@ -71,13 +97,13 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
       final List<Map<String, dynamic>> closToInsert = _clos
           .map(
             (clo) => {
-              'course_id': newCourseId,
-              'description': clo['description'],
-              'domain': clo['domain'],
-              'bt_level': clo['bt_level'],
-              'plo_id': clo['plo_id'],
-            },
-          )
+          'course_id': newCourseId,
+          'description': clo['description'],
+          'domain': clo['domain'],
+          'bt_level': clo['bt_level'],
+          'plo_id': clo['plo_id'],
+        },
+      )
           .toList();
 
       // 3. Insert CLOs
@@ -96,6 +122,8 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
         _codeController.text.trim().toUpperCase(),
         _titleController.text.trim(),
         closToInsert,
+        _creditHoursController.text.trim(),
+        provider.selectedDepartmentName ?? "BSCS",
       );
 
       // Close this page AND the catalog page, dropping them back on the dashboard
@@ -111,13 +139,23 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: Course code might already exist."),
+        const SnackBar(
+          content: Text(
+            "Error: Course code might already exist or invalid data.",
+          ),
           backgroundColor: AppColors.error,
         ),
       );
       setState(() => _isPublishing = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _titleController.dispose();
+    _creditHoursController.dispose();
+    super.dispose();
   }
 
   @override
@@ -147,6 +185,45 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
               padding: const EdgeInsets.all(24),
               children: [
                 const Text(
+                  "Assign to Department",
+                  style: TextStyle(fontFamily: 'Lato', fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: context.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(50)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedDepartmentId,
+                      isExpanded: true,
+                      dropdownColor: context.surface,
+                      hint: const Text("Select Department (or Shared Pool)"),
+                      items: context.watch<AssessmentProvider>().departments.map((dept) {
+                        return DropdownMenuItem<String>(
+                          value: dept['id'] as String,
+                          child: Text(
+                            dept['name'],
+                            style: TextStyle(
+                              fontFamily: 'Lato',
+                              fontWeight: dept['name'].toString().contains('General')
+                                  ? FontWeight.bold : FontWeight.normal,
+                              // Highlight the General pool slightly so they notice it
+                              color: dept['name'].toString().contains('General')
+                                  ? AppColors.primary : Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedDepartmentId = val),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
                   "Course Details",
                   style: TextStyle(
                     fontFamily: 'Lato',
@@ -155,26 +232,31 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 Row(
                   children: [
                     Expanded(
-                      flex: 1,
                       child: UniversalTextField(
                         controller: _codeController,
-                        labelText: "Code",
-                        hintText: "CS-304",
+                        labelText: "Course Code",
+                        hintText: "e.g., CS-304",
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      flex: 2,
                       child: UniversalTextField(
-                        controller: _titleController,
-                        labelText: "Title",
-                        hintText: "Object Oriented Prog.",
+                        controller: _creditHoursController,
+                        labelText: "Credit Hours",
+                        hintText: "e.g., 4(3-1)",
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                UniversalTextField(
+                  controller: _titleController,
+                  labelText: "Course Title",
+                  hintText: "e.g., Object Oriented Prog.",
                 ),
 
                 const SizedBox(height: 32),
@@ -234,6 +316,7 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
               child: ElevatedButton(
                 onPressed: _isPublishing ? null : _publishToCatalog,
                 style: ElevatedButton.styleFrom(
+                  elevation: 0,
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -242,13 +325,13 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
                 child: _isPublishing
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
-                        "Publish to Global Catalog",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                  "Publish to Global Catalog",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
           ),
@@ -318,7 +401,6 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
 
             const SizedBox(height: 12),
 
-            // The Dropdowns for Domain, BT, and PLO
             Row(
               children: [
                 Expanded(
@@ -326,7 +408,7 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
                     "Domain",
                     ['C', 'P', 'A'],
                     _clos[index]['domain'],
-                    (val) => setState(() => _clos[index]['domain'] = val),
+                        (val) => setState(() => _clos[index]['domain'] = val),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -335,7 +417,7 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
                     "BT Level",
                     [1, 2, 3, 4, 5, 6],
                     _clos[index]['bt_level'],
-                    (val) => setState(() => _clos[index]['bt_level'] = val),
+                        (val) => setState(() => _clos[index]['bt_level'] = val),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -344,7 +426,7 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
                     "PLO",
                     List.generate(12, (i) => i + 1),
                     _clos[index]['plo_id'],
-                    (val) => setState(() => _clos[index]['plo_id'] = val),
+                        (val) => setState(() => _clos[index]['plo_id'] = val),
                   ),
                 ),
               ],
@@ -356,11 +438,11 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
   }
 
   Widget _buildDropdown(
-    String label,
-    List<dynamic> items,
-    dynamic currentValue,
-    Function(dynamic) onChanged,
-  ) {
+      String label,
+      List<dynamic> items,
+      dynamic currentValue,
+      Function(dynamic) onChanged,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -389,13 +471,13 @@ class _ManualCourseEntryPageState extends State<ManualCourseEntryPage> {
               items: items
                   .map(
                     (item) => DropdownMenuItem(
-                      value: item,
-                      child: Text(
-                        item.toString(),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
+                  value: item,
+                  child: Text(
+                    item.toString(),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              )
                   .toList(),
               onChanged: onChanged,
             ),

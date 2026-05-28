@@ -156,6 +156,7 @@ class GenerateSection extends StatelessWidget {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            borderRadius: BorderRadius.circular(10),
                             value: assessmentProvider.selectedPaperCategory,
                             isExpanded: true,
                             dropdownColor: context.surface,
@@ -258,59 +259,198 @@ class GenerateSection extends StatelessWidget {
                                             entry,
                                           ) {
                                             int index = entry.key;
+                                            bool isCodeMode =
+                                                assessmentProvider
+                                                    .scenarioTypes[index] ==
+                                                'Code';
+
                                             return Padding(
                                               padding: const EdgeInsets.only(
                                                 top: 12.0,
                                               ),
-                                              child: Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                    flex: 3,
-                                                    child: UniversalTextField(
-                                                      controller: assessmentProvider
-                                                          .scenarioTextControllers[index],
-                                                      labelText:
-                                                          assessmentProvider
-                                                              .letAIGenerateScenario
-                                                          ? "AI Hint"
-                                                          : "Paste Exact Scenario",
-                                                      hintText:
-                                                          "e.g., C++ errors",
-                                                      maxLines: 2,
-                                                    ),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: context.background,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: context.border,
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    flex: 1,
-                                                    child: UniversalTextField(
-                                                      controller: assessmentProvider
-                                                          .scenarioMarksControllers[index],
-                                                      labelText: "Marks",
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      keyboardType:
-                                                          TextInputType.number,
-                                                    ),
-                                                  ),
-                                                  if (assessmentProvider
-                                                          .scenarioTextControllers
-                                                          .length >
-                                                      1)
-                                                    IconButton(
-                                                      icon: Icon(
-                                                        Icons.remove_circle,
-                                                        color: context.error
-                                                            .withAlpha(200),
-                                                      ),
-                                                      onPressed: () =>
-                                                          assessmentProvider
-                                                              .removeCustomScenario(
-                                                                index,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    // 🚀 Toggle & Delete Row (Only shows if AI generation is ON)
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        if (assessmentProvider
+                                                            .letAIGenerateScenario)
+                                                          SegmentedButton<
+                                                            String
+                                                          >(
+                                                            segments: const [
+                                                              ButtonSegment(
+                                                                value:
+                                                                    'Scenario',
+                                                                label: Text(
+                                                                  'Scenario',
+                                                                ),
                                                               ),
+                                                              ButtonSegment(
+                                                                value: 'Code',
+                                                                label: Text(
+                                                                  'Code',
+                                                                ),
+                                                              ),
+                                                            ],
+                                                            selected: {
+                                                              assessmentProvider
+                                                                  .scenarioTypes[index],
+                                                            },
+                                                            onSelectionChanged:
+                                                                (
+                                                                  Set<String>
+                                                                  newSelection,
+                                                                ) {
+                                                                  assessmentProvider
+                                                                      .updateScenarioType(
+                                                                        index,
+                                                                        newSelection
+                                                                            .first,
+                                                                      );
+                                                                },
+                                                            style: SegmentedButton.styleFrom(
+                                                              visualDensity:
+                                                                  VisualDensity
+                                                                      .compact,
+                                                              selectedForegroundColor:
+                                                                  Colors.white,
+                                                              selectedBackgroundColor:
+                                                                  AppColors
+                                                                      .primary,
+                                                            ),
+                                                          )
+                                                        else
+                                                          Text(
+                                                            "Exact Content ${index + 1}",
+                                                            style: TextStyle(
+                                                              color: context
+                                                                  .textPrimary,
+                                                              fontFamily:
+                                                                  'Lato',
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 14,
+                                                            ),
+                                                          ),
+                                                        if (assessmentProvider
+                                                                .scenarioTextControllers
+                                                                .length >
+                                                            1)
+                                                          IconButton(
+                                                            icon: Icon(
+                                                              Icons
+                                                                  .remove_circle,
+                                                              color: context
+                                                                  .error
+                                                                  .withAlpha(
+                                                                    200,
+                                                                  ),
+                                                            ),
+                                                            onPressed: () =>
+                                                                assessmentProvider
+                                                                    .removeCustomScenario(
+                                                                      index,
+                                                                    ),
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                            constraints:
+                                                                const BoxConstraints(),
+                                                          ),
+                                                      ],
                                                     ),
-                                                ],
+                                                    const SizedBox(height: 12),
+
+                                                    // 🚀 Language Input (Only if AI generation is ON AND Code is selected)
+                                                    if (assessmentProvider
+                                                            .letAIGenerateScenario &&
+                                                        isCodeMode) ...[
+                                                      UniversalTextField(
+                                                        controller:
+                                                            assessmentProvider
+                                                                .scenarioLangControllers[index],
+                                                        labelText:
+                                                            "Programming Language",
+                                                        hintText:
+                                                            "e.g., Python, Dart, C++",
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 12,
+                                                      ),
+                                                    ],
+
+                                                    // 🚀 Prompt & Marks Row
+                                                    Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Expanded(
+                                                          flex: 3,
+                                                          child: UniversalTextField(
+                                                            controller:
+                                                                assessmentProvider
+                                                                    .scenarioTextControllers[index],
+                                                            labelText:
+                                                                assessmentProvider
+                                                                    .letAIGenerateScenario
+                                                                ? (isCodeMode
+                                                                      ? "Code Topic Hint"
+                                                                      : "Scenario Hint")
+                                                                : "Paste Exact Scenario / Code",
+                                                            hintText:
+                                                                assessmentProvider
+                                                                    .letAIGenerateScenario
+                                                                ? (isCodeMode
+                                                                      ? "e.g., A function to reverse an array"
+                                                                      : "e.g., A bank fraud case")
+                                                                : "Paste the exact text or code snippet here...",
+                                                            maxLines:
+                                                                assessmentProvider
+                                                                    .letAIGenerateScenario
+                                                                ? 2
+                                                                : 4,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: UniversalTextField(
+                                                            controller:
+                                                                assessmentProvider
+                                                                    .scenarioMarksControllers[index],
+                                                            labelText: "Marks",
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                            keyboardType:
+                                                                TextInputType
+                                                                    .number,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             );
                                           }),
@@ -350,9 +490,6 @@ class GenerateSection extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            // Removed Variations and its spacing, jumping straight to inputs!
-
-            // 🚀 THE CLEAN ROWS
             _buildConfigRow(
               context,
               title: "Multiple Choice",
@@ -381,87 +518,185 @@ class GenerateSection extends StatelessWidget {
               marksCtrl: assessmentProvider.longMarksController,
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 15),
 
-            // --- Generate Button ---
+            // 🚀 The Ultimate Validation Engine & Generate Button
             Consumer<AssessmentProvider>(
               builder: (context, provider, child) {
-                return GestureDetector(
-                  onTap: provider.isLoading
-                      ? null
-                      : () async {
-                          FocusScope.of(context).unfocus();
-                          final prefs = await SharedPreferences.getInstance();
-                          final String difficulty =
-                              prefs.getString('selectedDifficulty') ?? "Medium";
-                          await provider.triggerGeneration(
-                            context,
-                            difficulty: difficulty,
-                          );
+                // 1. Fetch the live math
+                final int currentMarks = provider.currentConfiguredMarks;
+                final int targetMarks = provider.currentTargetMarks;
 
-                          if (provider.generatedAssessment != null &&
-                              context.mounted) {
-                            await context
-                                .read<HistoryProvider>()
-                                .saveAssessment(provider.generatedAssessment!);
-                            if (!context.mounted) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AssessmentPreviewPage(),
-                              ),
-                            );
-                          }
-                        },
-                  child: Container(
-                    height: 50,
-                    width: context.widthPercent(0.4),
-                    decoration: BoxDecoration(
-                      color: provider.isLoading
-                          ? (context.isDarkMode
-                                ? context.surface.withAlpha(150)
-                                : context.primary.withAlpha(150))
-                          : (context.isDarkMode
-                                ? context.background
-                                : context.primary),
-                      borderRadius: BorderRadius.circular(25),
+                // 2. Check Context
+                final bool isCourseImported =
+                    provider.selectedCourseCode != null && targetMarks > 0;
+                final bool hasFiles = provider.selectedFiles.isNotEmpty;
+
+                // If a course is imported, ensure at least one CLO is checked.
+                // (If no course is imported, we bypass this rule).
+                final bool hasSelectedCLOs =
+                    !isCourseImported ||
+                    provider.importedCLOs.any(
+                      (clo) => clo['isSelected'] == true,
+                    );
+
+                // 3. Determine Math Logic
+                final bool isExactMatch = isCourseImported
+                    ? (currentMarks == targetMarks)
+                    : (currentMarks > 0);
+
+                final bool isOverLimit = isCourseImported
+                    ? currentMarks > targetMarks
+                    : false;
+                final bool isUnderLimit = isCourseImported
+                    ? (currentMarks < targetMarks && currentMarks > 0)
+                    : false;
+
+                // 4. Disable Button Rule
+                final bool disableButton =
+                    provider.isLoading ||
+                    !isExactMatch ||
+                    !hasFiles ||
+                    !hasSelectedCLOs;
+
+                // 5. Determine Dynamic Colors & Feedback Text (Priority Based)
+                Color counterColor = context.textSecondary;
+                String feedbackText = "";
+
+                if (isCourseImported && isOverLimit) {
+                  counterColor = Colors.redAccent;
+                  feedbackText =
+                      "Marks Exceeded: $currentMarks / $targetMarks (Remove ${currentMarks - targetMarks})";
+                } else if (isCourseImported && isUnderLimit) {
+                  counterColor = Colors.orange;
+                  feedbackText =
+                      "Marks Needed: $currentMarks / $targetMarks (Add ${targetMarks - currentMarks} more)";
+                } else if (!isCourseImported && currentMarks == 0) {
+                  counterColor = Colors.orange;
+                  feedbackText = "Add question marks to continue.";
+                } else if (!hasSelectedCLOs) {
+                  counterColor = Colors.orange;
+                  feedbackText = "Action Required: Select at least one CLO.";
+                } else if (!hasFiles) {
+                  counterColor = Colors.orange;
+                  feedbackText = "Action Required: Upload curriculum notes.";
+                } else {
+                  counterColor = Colors.green;
+                  feedbackText = isCourseImported
+                      ? "Perfect! Ready to generate."
+                      : "Ready to generate ($currentMarks marks).";
+                }
+
+                return Column(
+                  children: [
+                    // 🚀 The Universal Status Pill
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: counterColor.withAlpha(20),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: counterColor.withAlpha(80)),
+                      ),
+                      child: Text(
+                        feedbackText,
+                        style: TextStyle(
+                          color: counterColor,
+                          fontFamily: 'Lato',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: provider.isLoading
-                          ? const [
-                              SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              ),
-                            ]
-                          : const [
-                              Icon(
-                                Icons.auto_awesome,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                "Generate",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: 'Lato',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
+
+                    // The Generate Button
+                    GestureDetector(
+                      onTap: disableButton
+                          ? null
+                          : () async {
+                              FocusScope.of(context).unfocus();
+
+                              // 🚀 Trigger directly! No difficulty needed.
+                              await provider.triggerGeneration(context);
+
+                              if (provider.generatedAssessment != null &&
+                                  context.mounted) {
+                                await context
+                                    .read<HistoryProvider>()
+                                    .saveAssessment(
+                                      provider.generatedAssessment!,
+                                    );
+                                if (!context.mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AssessmentPreviewPage(),
+                                  ),
+                                );
+                              }
+                            },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        height: 50,
+                        width: context.widthPercent(0.4),
+                        decoration: BoxDecoration(
+                          color: disableButton
+                              ? context.background.withAlpha(400) // Dimmed out
+                              : AppColors.primary, // Glowing Blue
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: disableButton
+                                ? context.border
+                                : AppColors.primary,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: provider.isLoading
+                              ? const [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  ),
+                                ]
+                              : [
+                                  Icon(
+                                    Icons.auto_awesome,
+                                    color: disableButton
+                                        ? context.textSecondary
+                                        : Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "Generate",
+                                    style: TextStyle(
+                                      color: disableButton
+                                          ? context.textSecondary
+                                          : Colors.white,
+                                      fontFamily: 'Lato',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 );
               },
             ),
-            const SizedBox(height: 80),
+            const SizedBox(height: 90),
           ],
         ),
       ),

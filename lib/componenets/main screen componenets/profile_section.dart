@@ -14,8 +14,8 @@ class ProfileSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+
     return Container(
-      height: context.heightPercent(0.22),
       decoration: BoxDecoration(
         color: context.isDarkMode ? context.surface : context.primary,
         borderRadius: const BorderRadius.only(
@@ -24,12 +24,13 @@ class ProfileSection extends StatelessWidget {
         ),
       ),
       child: SafeArea(
+        bottom: false,
         child: Padding(
           padding: const EdgeInsets.only(left: 20, right: 20, top: 10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.max,
+            mainAxisSize: MainAxisSize.min,
             children: [
               ProfilePictureWidget(
                 userId: Supabase.instance.client.auth.currentUser!.id,
@@ -37,6 +38,7 @@ class ProfileSection extends StatelessWidget {
                 radius: 22,
                 showEditBadge: false,
               ),
+              const SizedBox(height: 8),
               const Text(
                 "Welcome!",
                 style: TextStyle(
@@ -56,7 +58,7 @@ class ProfileSection extends StatelessWidget {
                   fontSize: 24,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Consumer2<HistoryProvider, TemplateProvider>(
@@ -72,7 +74,6 @@ class ProfileSection extends StatelessWidget {
                           iconColor: Colors.blueAccent,
                         ),
 
-                        // 🚀 UPGRADED: Now uses AuthProvider for instant rendering
                         _buildStorageCard(context),
 
                         _buildStatCard(
@@ -145,33 +146,30 @@ class ProfileSection extends StatelessWidget {
     );
   }
 
-  // 🚀 REWIRED LOGIC: Exact same UI, but pulls from local AuthProvider state
   Widget _buildStorageCard(BuildContext context) {
-    // Watch the auth provider directly instead of using a StreamBuilder
     final authProvider = context.watch<AuthProvider>();
 
     double percentUsed = 0.0;
     Color barColor = Colors.greenAccent;
 
-    // Do the MB math using the provider's local integers
     final usedMB = authProvider.storageUsedBytes / (1024 * 1024);
     final limitMB = authProvider.storageLimitBytes / (1024 * 1024);
     final remainingMB = limitMB - usedMB;
 
     if (authProvider.storageLimitBytes > 0) {
-      percentUsed = (authProvider.storageUsedBytes / authProvider.storageLimitBytes).clamp(0.0, 1.0);
+      percentUsed =
+          (authProvider.storageUsedBytes / authProvider.storageLimitBytes)
+              .clamp(0.0, 1.0);
     }
 
     String displayValue = "${remainingMB.toStringAsFixed(1)} MB";
 
-    // Dynamic bar colors
     if (percentUsed > 0.9) {
       barColor = Colors.redAccent;
     } else if (percentUsed > 0.7) {
       barColor = Colors.orangeAccent;
     }
 
-    // Exact same UI structure you provided
     return Container(
       height: context.heightPercent(0.08),
       width: context.widthPercent(0.27),
@@ -200,7 +198,9 @@ class ProfileSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: percentUsed,
-              backgroundColor: context.isDarkMode ? Colors.white12 : Colors.black12,
+              backgroundColor: context.isDarkMode
+                  ? Colors.white12
+                  : Colors.black12,
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
               minHeight: 4,
             ),

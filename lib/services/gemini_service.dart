@@ -37,6 +37,7 @@ class GeminiService {
     - Verbs to use: Arrange, Assemble, Categorize, Collect, Combine, Comply, Compose, Construct, Create, Design, Develop, Devise, Explain, Formulate, Generate, Plan, Prepare, Rearrange, Reconstruct, Relate, Reorganize, Revise, Rewrite, Set up, Summarize, Synthesize, Tell, Write, Appraise, Argue, Assess, Attach, Choose, Compare, Conclude, Contrast, Defend, Describe, Discriminate, Estimate, Evaluate, Judge, Justify, Interpret, Predict, Rate, Select, Support, and Value.
     """;
   }
+
   Future<Map<String, dynamic>?> generateAssessment({
     required String documentText,
     required String paperCategory,
@@ -58,17 +59,17 @@ class GeminiService {
       cloPromptSection =
       """
       COURSE LEARNING OBJECTIVES (CLOs):
-      ${activeCLOs.asMap().entries.map((e) => "CLO ${e.key + 1}: ${e.value}").join('\n')}
+      ${activeCLOs.join('\n')}
 
       CRITICAL CLO DISTRIBUTION RULES:
       You are strictly required to map EVERY generated question to one of the CLOs listed above. 
       1. Uniform Coverage: For each section (MCQs, Short Questions, Long Questions), you MUST generate one question per CLO before you are allowed to reuse a CLO. 
-      2. The Overflow Rule: If a section requires more questions than available CLOs (e.g., 4 questions, 3 CLOs), map the first 3 questions to CLO 1, CLO 2, and CLO 3 respectively. Assign the 4th question to the most fundamentally important CLO.
-      3. The Distinct Rule (No Duplication): If a section requires fewer questions than available CLOs (e.g., 2 Long Questions, 3 CLOs), you MUST pick distinct CLOs. Never assign the same CLO to two questions in the same section unless you have already used every single CLO at least once in that section.
-      4. JSON Output: Every single question object in your JSON response MUST include a "target_clo" key containing the exact CLO identifier (e.g., "CLO 1").
+      2. The Overflow Rule: If a section requires more questions than available CLOs, map the first questions to the available CLOs respectively. Assign the remaining questions to the most fundamentally important CLO.
+      3. The Distinct Rule (No Duplication): If a section requires fewer questions than available CLOs, you MUST pick distinct CLOs. Never assign the same CLO to two questions in the same section unless you have already used every single CLO at least once in that section.
+      4. JSON Output: Every single question object in your JSON response MUST include a "target_clo" key containing the exact CLO identifier provided above (e.g., "CLO 3").
       """;
 
-      cloJsonField = ',\n            "target_clo": "CLO 1"';
+      cloJsonField = ',\n            "target_clo": "CLO X"';
     }
 
     String categoryInstruction = "";
@@ -87,27 +88,31 @@ class GeminiService {
     String scenarioJsonField = "";
 
     if (paperCategory != "Theory Based" && customScenarios.isNotEmpty) {
-      String formattedRequests = customScenarios
-          .asMap()
-          .entries
-          .map((e) => "Scenario ${e.key + 1} (Marks: ${e.value['marks']}): ${e.value['text']}")
-          .join("\n");
+      // 🚀 THE FIX: Strict Guardrails based on the user's explicit selection
+      String formattedRequests = customScenarios.asMap().entries.map((e) {
+        final sc = e.value;
+        if (sc['type'] == 'Code') {
+          return "Item ${e.key + 1} (Marks: ${sc['marks']}): STRICT CODE GENERATION. Language: ${sc['language']}. Topic/Hint: ${sc['text']}. You MUST output pure, executable code. DO NOT write a story, narrative, or scenario.";
+        } else {
+          return "Item ${e.key + 1} (Marks: ${sc['marks']}): STRICT SCENARIO GENERATION. Topic/Hint: ${sc['text']}. You MUST output a text-based real-world scenario or case study. DO NOT generate code blocks.";
+        }
+      }).join("\n\n");
 
       if (letAIGenerateScenario) {
         scenarioInstruction =
         """
-        SCENARIO RULE: You MUST generate ${customScenarios.length} scenarios or code blocks based on the following hints.
+        SCENARIO & CODE RULES: You MUST generate ${customScenarios.length} items based EXACTLY on the following instructions.
         
-        CRITICAL CONSTRAINTS FOR GENERATION:
-        1. If the hint asks for a scenario or case study, write a clear, text-based narrative story or problem description.
-        2. If the hint asks for code, you MUST output pure, fresh code. You are STRICTLY FORBIDDEN from adding any code comments (e.g., no //, no /* */, no #) unless the teacher's hint specifically asks you to include them. Do not explain the code inside the code block.
+        CRITICAL CONSTRAINTS:
+        1. If an item is marked as STRICT CODE GENERATION, you are strictly forbidden from writing paragraph text. Output only the requested code.
+        2. If an item is marked as STRICT SCENARIO GENERATION, you must write a realistic problem description. Output only text, no code.
         
-        [TEACHER HINTS]
+        [TEACHER INSTRUCTIONS]
         $formattedRequests
         """;
       } else {
         scenarioInstruction =
-        "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them. Base your questions strictly on these.\n[EXACT TEXT]\n$formattedRequests";
+        "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them.\n[EXACT TEXT]\n$formattedRequests";
       }
 
       scenarioJsonField = '''
@@ -128,7 +133,10 @@ class GeminiService {
       String formattedDiagrams = diagramQuestions
           .asMap()
           .entries
-          .map((e) => "Diagram Question ${e.key + 1} (Marks: ${e.value['marks']}, URL: ${e.value['image_url']}): ${e.value['question']}")
+          .map(
+            (e) =>
+        "Diagram Question ${e.key + 1} (Marks: ${e.value['marks']}, URL: ${e.value['image_url']}): ${e.value['question']}",
+      )
           .join("\n");
 
       diagramInstruction =
@@ -355,15 +363,18 @@ class GeminiService {
     return null;
   }
 
-  Future<Map<String, dynamic>?> extractCourseSyllabusFromImage(File imageFile) async {
+  Future<Map<String, dynamic>?> extractCourseSyllabusFromImage(
+      File imageFile,
+      ) async {
     final String extractionPrompt = """
       You are a university curriculum data extractor. Analyze this syllabus image.
-      Extract the course details and all Course Learning Objectives (CLOs).
+      Extract the course details, the Credit Hours, and all Course Learning Objectives (CLOs).
 
       You MUST return ONLY a valid JSON object with the following exact structure, no markdown formatting, no extra text:
       {
         "course_code": "Extracted code (e.g., CS-304)",
         "course_title": "Extracted title (e.g., Object Oriented Programming)",
+        "credit_hours": "Extracted credit hours strictly formatted as X(Y-Z), e.g., 4(3-1) or 3(3-0)",
         "clos": [
           {
             "description": "The objective text",
@@ -374,13 +385,16 @@ class GeminiService {
         ]
       }
       
-      CRITICAL: If the image doesn't explicitly state the course code or title, make your best guess or leave it blank, but preserve the JSON structure. If the domain, bt_level, or plo_id are missing, default them to "C", 2, and 1 respectively.
+      CRITICAL: Look closely for credit hours (often written near the title as Cr. Hrs: 3 or 4(3-1)). If the image doesn't explicitly state the credit hours, default it to "3(3-0)". If it doesn't state the course code or title, make your best guess or leave it blank, but preserve the JSON structure. If the domain, bt_level, or plo_id are missing, default them to "C", 2, and 1 respectively.
     """;
 
     try {
       final imageBytes = await imageFile.readAsBytes();
       final content = [
-        Content.multi([TextPart(extractionPrompt), DataPart('image/jpeg', imageBytes)]),
+        Content.multi([
+          TextPart(extractionPrompt),
+          DataPart('image/jpeg', imageBytes),
+        ]),
       ];
 
       final response = await _model.generateContent(content);

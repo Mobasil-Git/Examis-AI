@@ -31,6 +31,7 @@ class AssessmentPreviewPage extends StatelessWidget {
     final List<dynamic> scenarios = data['custom_scenarios'] ?? [];
     final List<dynamic> diagramQs = data['diagram_questions'] ?? [];
 
+
     return Scaffold(
       backgroundColor: context.background,
       appBar: AppBar(
@@ -95,7 +96,10 @@ class AssessmentPreviewPage extends StatelessWidget {
             if (scenarios.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Scenarios & Code Blocks"),
-              ...scenarios.asMap().entries.map((entry) {
+              ...scenarios
+                  .asMap()
+                  .entries
+                  .map((entry) {
                 int index = entry.key + 1;
                 Map<String, dynamic> scData = entry.value;
                 return Container(
@@ -134,36 +138,49 @@ class AssessmentPreviewPage extends StatelessWidget {
             ],
             if (mcqs.isNotEmpty) ...[
               _buildSectionHeader("Multiple Choice (${mcqs.length})"),
-              ...mcqs.asMap().entries.map(
-                (entry) =>
+              ...mcqs
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) =>
                     _buildMCQCard(entry.key, entry.value, context, provider),
               ),
             ],
             if (fillBlanks.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Fill in the Blanks (${fillBlanks.length})"),
-              ...fillBlanks.asMap().entries.map(
-                (entry) => _buildFillBlankCard(
-                  entry.key,
-                  entry.value,
-                  context,
-                  provider,
-                ),
+              ...fillBlanks
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) =>
+                    _buildFillBlankCard(
+                      entry.key,
+                      entry.value,
+                      context,
+                      provider,
+                    ),
               ),
             ],
             if (shortQs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Short Answer (${shortQs.length})"),
-              ...shortQs.asMap().entries.map(
-                (entry) =>
+              ...shortQs
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) =>
                     _buildShortQCard(entry.key, entry.value, context, provider),
               ),
             ],
             if (longQs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Long Essay (${longQs.length})"),
-              ...longQs.asMap().entries.map(
-                (entry) =>
+              ...longQs
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) =>
                     _buildLongQCard(entry.key, entry.value, context, provider),
               ),
             ],
@@ -171,7 +188,10 @@ class AssessmentPreviewPage extends StatelessWidget {
             if (diagramQs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSectionHeader("Diagrams & Visuals (${diagramQs.length})"),
-              ...diagramQs.asMap().entries.map((entry) {
+              ...diagramQs
+                  .asMap()
+                  .entries
+                  .map((entry) {
                 final diagram = entry.value;
                 final int displayIndex = entry.key + 1;
 
@@ -211,7 +231,9 @@ class AssessmentPreviewPage extends StatelessWidget {
                         ],
                       ),
                       if (diagram['target_clo'] != null &&
-                          diagram['target_clo'].toString().isNotEmpty)
+                          diagram['target_clo']
+                              .toString()
+                              .isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0, bottom: 8.0),
                           child: Text(
@@ -227,7 +249,9 @@ class AssessmentPreviewPage extends StatelessWidget {
                       const SizedBox(height: 12),
 
                       if (diagram['image_url'] != null &&
-                          diagram['image_url'].toString().isNotEmpty)
+                          diagram['image_url']
+                              .toString()
+                              .isNotEmpty)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
@@ -291,12 +315,10 @@ class AssessmentPreviewPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMCQCard(
-    int listIndex,
-    Map<String, dynamic> questionData,
-    BuildContext context,
-    AssessmentProvider provider,
-  ) {
+  Widget _buildMCQCard(int listIndex,
+      Map<String, dynamic> questionData,
+      BuildContext context,
+      AssessmentProvider provider,) {
     final bool isRegenerating = provider.isRegenerating("mcqs", listIndex);
     final int displayIndex = listIndex + 1;
     final List<dynamic> options = questionData['options'] ?? [];
@@ -308,96 +330,96 @@ class AssessmentPreviewPage extends StatelessWidget {
       child: isRegenerating
           ? _buildLoadingCard(context)
           : Container(
-              key: ValueKey(questionData['question']),
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: context.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "$displayIndex. ${questionData['question']}",
-                          style: TextStyle(
-                            color: context.textPrimary,
-                            fontFamily: 'Lato',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        onPressed: () => provider.regenerateSingleItem(
-                          context,
-                          "mcqs",
-                          listIndex,
-                        ),
-                        tooltip: "Regenerate Question",
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
+        key: ValueKey(questionData['question']),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    "$displayIndex. ${questionData['question']}",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ...options.map(
-                    (option) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        option.toString(),
-                        style: TextStyle(
-                          color: context.textSecondary,
-                          fontFamily: 'Lato',
-                          fontSize: 14,
-                        ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  onPressed: () =>
+                      provider.regenerateSingleItem(
+                        context,
+                        "mcqs",
+                        listIndex,
+                      ),
+                  tooltip: "Regenerate Question",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...options.map(
+                  (option) =>
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      option.toString(),
+                      style: TextStyle(
+                        color: context.textSecondary,
+                        fontFamily: 'Lato',
+                        fontSize: 14,
                       ),
                     ),
                   ),
-                  Divider(color: context.border, height: 24),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        color: Colors.green,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Answer: ${questionData['correctAnswer']}",
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontFamily: 'Lato',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
+            Divider(color: context.border, height: 24),
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Answer: ${questionData['correctAnswer']}",
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontFamily: 'Lato',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildShortQCard(
-    int listIndex,
-    Map<String, dynamic> questionData,
-    BuildContext context,
-    AssessmentProvider provider,
-  ) {
+  Widget _buildShortQCard(int listIndex,
+      Map<String, dynamic> questionData,
+      BuildContext context,
+      AssessmentProvider provider,) {
     final bool isRegenerating = provider.isRegenerating(
       "shortQuestions",
       listIndex,
@@ -411,77 +433,76 @@ class AssessmentPreviewPage extends StatelessWidget {
       child: isRegenerating
           ? _buildLoadingCard(context)
           : Container(
-              key: ValueKey(questionData['question']),
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
+        key: ValueKey(questionData['question']),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    "$displayIndex. ${questionData['question']}",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  onPressed: () =>
+                      provider.regenerateSingleItem(
+                        context,
+                        "shortQuestions",
+                        listIndex,
+                      ),
+                  tooltip: "Regenerate Question",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: context.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.border),
+                color: context.background,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "$displayIndex. ${questionData['question']}",
-                          style: TextStyle(
-                            color: context.textPrimary,
-                            fontFamily: 'Lato',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        onPressed: () => provider.regenerateSingleItem(
-                          context,
-                          "shortQuestions",
-                          listIndex,
-                        ),
-                        tooltip: "Regenerate Question",
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: context.background,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "Ideal Answer: ${questionData['idealAnswer']}",
-                      style: TextStyle(
-                        color: context.textSecondary,
-                        fontFamily: 'Lato',
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                "Ideal Answer: ${questionData['idealAnswer']}",
+                style: TextStyle(
+                  color: context.textSecondary,
+                  fontFamily: 'Lato',
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildLongQCard(
-    int listIndex,
-    Map<String, dynamic> questionData,
-    BuildContext context,
-    AssessmentProvider provider,
-  ) {
+  Widget _buildLongQCard(int listIndex,
+      Map<String, dynamic> questionData,
+      BuildContext context,
+      AssessmentProvider provider,) {
     final bool isRegenerating = provider.isRegenerating(
       "longQuestions",
       listIndex,
@@ -495,86 +516,87 @@ class AssessmentPreviewPage extends StatelessWidget {
       child: isRegenerating
           ? _buildLoadingCard(context)
           : Container(
-              key: ValueKey(questionData['question']),
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
+        key: ValueKey(questionData['question']),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    "$displayIndex. ${questionData['question']}",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  onPressed: () =>
+                      provider.regenerateSingleItem(
+                        context,
+                        "longQuestions",
+                        listIndex,
+                      ),
+                  tooltip: "Regenerate Question",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: context.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.border),
+                color: AppColors.primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.primary.withAlpha(50),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "$displayIndex. ${questionData['question']}",
-                          style: TextStyle(
-                            color: context.textPrimary,
-                            fontFamily: 'Lato',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        onPressed: () => provider.regenerateSingleItem(
-                          context,
-                          "longQuestions",
-                          listIndex,
-                        ),
-                        tooltip: "Regenerate Question",
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withAlpha(20),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.primary.withAlpha(50),
-                      ),
+                  const Text(
+                    "Grading Rubric:",
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontFamily: 'Lato',
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Grading Rubric:",
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontFamily: 'Lato',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          questionData['gradingRubric'] ?? "",
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontFamily: 'Lato',
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    questionData['gradingRubric'] ?? "",
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontFamily: 'Lato',
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -623,12 +645,10 @@ class AssessmentPreviewPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFillBlankCard(
-    int listIndex,
-    Map<String, dynamic> questionData,
-    BuildContext context,
-    AssessmentProvider provider,
-  ) {
+  Widget _buildFillBlankCard(int listIndex,
+      Map<String, dynamic> questionData,
+      BuildContext context,
+      AssessmentProvider provider,) {
     final bool isRegenerating = provider.isRegenerating(
       "fillInTheBlanks",
       listIndex,
@@ -642,78 +662,78 @@ class AssessmentPreviewPage extends StatelessWidget {
       child: isRegenerating
           ? _buildLoadingCard(context)
           : Container(
-              key: ValueKey(questionData['question']),
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: context.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "$displayIndex. ${questionData['question']}",
-                          style: TextStyle(
-                            color: context.textPrimary,
-                            fontFamily: 'Lato',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        onPressed: () => provider.regenerateSingleItem(
-                          context,
-                          "fillInTheBlanks",
-                          listIndex,
-                        ),
-                        tooltip: "Regenerate Question",
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
+        key: ValueKey(questionData['question']),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    "$displayIndex. ${questionData['question']}",
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontFamily: 'Lato',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.edit_note,
-                        color: Colors.blueAccent,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Answer: ${questionData['answer']}",
-                          style: const TextStyle(
-                            color: Colors.blueAccent,
-                            fontFamily: 'Lato',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                    size: 20,
                   ),
-                ],
-              ),
+                  onPressed: () =>
+                      provider.regenerateSingleItem(
+                        context,
+                        "fillInTheBlanks",
+                        listIndex,
+                      ),
+                  tooltip: "Regenerate Question",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.edit_note,
+                  color: Colors.blueAccent,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Answer: ${questionData['answer']}",
+                    style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontFamily: 'Lato',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildFlatButton(
-    BuildContext context, {
+  Widget _buildFlatButton(BuildContext context, {
     required String title,
     required IconData icon,
     required Color color,
@@ -748,10 +768,8 @@ class AssessmentPreviewPage extends StatelessWidget {
     );
   }
 
-  void _showTemplateSelectionBottomSheet(
-    BuildContext context,
-    Map<String, dynamic> data,
-  ) {
+  void _showTemplateSelectionBottomSheet(BuildContext context,
+      Map<String, dynamic> data,) {
     bool showCloTags = false;
 
     showModalBottomSheet(
@@ -912,13 +930,22 @@ class AssessmentPreviewPage extends StatelessWidget {
                                 );
 
                                 final String selectedUrl =
-                                    institute['template_url'];
+                                institute['template_url'];
+                                final provider = context.read<
+                                    AssessmentProvider>();
+
                                 final success = await ExportService()
                                     .exportToWord(
-                                      data,
-                                      selectedUrl,
-                                      showCloTags,
-                                    );
+                                  data,
+                                  selectedUrl,
+                                  showCloTags,
+                                  provider.selectedExamType,
+                                  provider.currentTargetMarks,
+                                  provider.selectedCourseTitle ??
+                                      "Unknown Course",
+                                  provider.courseCreditHours,
+                                  provider.selectedDepartmentName ?? "BSCS",
+                                );
 
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(

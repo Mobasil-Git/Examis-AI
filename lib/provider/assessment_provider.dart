@@ -15,26 +15,102 @@ class AssessmentProvider extends ChangeNotifier {
   final _documentService = DocumentService();
   final _geminiService = GeminiService();
   bool isDemoMode = false;
-
-  // --- NEW: Catalog Variables ---
   String? selectedCourseCode;
   String? selectedCourseTitle;
+  String courseCreditHours = "3(3-0)";
   List<Map<String, dynamic>> importedCLOs = [];
+  String? selectedDepartmentName;
+
+  List<Map<String, dynamic>> _departments = [];
+
+  List<Map<String, dynamic>> get departments => _departments;
+
+  Map<String, dynamic>? _generalDepartment;
+
+  Map<String, dynamic>? get generalDepartment => _generalDepartment;
+
+  Future<void> fetchDepartments() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('departments')
+          .select()
+          .order('name');
+
+      _departments = List<Map<String, dynamic>>.from(response);
+      try {
+        _generalDepartment = _departments.firstWhere(
+          (dept) => dept['name'].toString().contains('General'),
+        );
+      } catch (e) {
+        debugPrint("General/Shared department not found in list.");
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching departments: $e");
+    }
+  }
 
   void setImportedCourse(
     String code,
     String title,
     List<Map<String, dynamic>> clos,
+    String creditHours,
+      String departmentName,
   ) {
     selectedCourseCode = code;
     selectedCourseTitle = title;
-    importedCLOs = clos;
+    selectedDepartmentName = departmentName;
+
+    importedCLOs = clos.map((clo) {
+      final modifiableClo = Map<String, dynamic>.from(clo);
+      modifiableClo['isSelected'] = true;
+      return modifiableClo;
+    }).toList();
+    courseCreditHours = creditHours;
+
+    parseCreditHours(creditHours);
+    notifyListeners();
+  }
+
+  int get currentConfiguredMarks {
+    int total = 0;
+
+    total +=
+        (int.tryParse(mcqCountController.text) ?? 0) *
+        (int.tryParse(mcqMarksController.text) ?? 0);
+    total +=
+        (int.tryParse(shortCountController.text) ?? 0) *
+        (int.tryParse(shortMarksController.text) ?? 0);
+    total +=
+        (int.tryParse(longCountController.text) ?? 0) *
+        (int.tryParse(longMarksController.text) ?? 0);
+    total +=
+        (int.tryParse(fillBlankCountController.text) ?? 0) *
+        (int.tryParse(fillBlankMarksController.text) ?? 0);
+
+    if (selectedPaperCategory != 'Theory Based') {
+      for (var ctrl in scenarioMarksControllers) {
+        total += int.tryParse(ctrl.text) ?? 0;
+      }
+    }
+
+    for (var ctrl in diagramMarksControllers) {
+      total += int.tryParse(ctrl.text) ?? 0;
+    }
+
+    return total;
+  }
+
+  void _onFormChanged() {
+    _saveDraft();
     notifyListeners();
   }
 
   void clearImportedCourse() {
     selectedCourseCode = null;
     selectedCourseTitle = null;
+    selectedDepartmentName = null;
     importedCLOs = [];
     notifyListeners();
   }
@@ -47,12 +123,17 @@ class AssessmentProvider extends ChangeNotifier {
   String selectedPaperCategory = 'Theory Based';
   bool letAIGenerateScenario = true;
 
+  // 🚀 NEW: Added tracking for Type and Language
   List<TextEditingController> scenarioTextControllers = [
     TextEditingController(),
   ];
   List<TextEditingController> scenarioMarksControllers = [
     TextEditingController(),
   ];
+  List<TextEditingController> scenarioLangControllers = [
+    TextEditingController(),
+  ];
+  List<String> scenarioTypes = ['Scenario'];
 
   List<TextEditingController> diagramTextControllers = [];
   List<TextEditingController> diagramMarksControllers = [];
@@ -62,17 +143,207 @@ class AssessmentProvider extends ChangeNotifier {
   AssessmentProvider() {
     _loadDraft();
     _attachSaveListeners();
+
+    if (scenarioMarksControllers.isNotEmpty) {
+      scenarioMarksControllers[0].addListener(_onFormChanged);
+    }
+    if (scenarioLangControllers.isNotEmpty) {
+      scenarioLangControllers[0].addListener(_onFormChanged);
+    }
+    if (diagramMarksControllers.isNotEmpty) {
+      diagramMarksControllers[0].addListener(_onFormChanged);
+    }
+  }
+
+  List<Map<String, dynamic>> _availableBatches = [];
+  Map<String, dynamic>? _selectedBatch;
+
+  List<Map<String, dynamic>> get availableBatches => _availableBatches;
+
+  Map<String, dynamic>? get selectedBatch => _selectedBatch;
+
+  List<Map<String, dynamic>> _filteredMasterCourses = [];
+
+  List<Map<String, dynamic>> get filteredMasterCourses =>
+      _filteredMasterCourses;
+
+  Future<void> fetchBatches() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('batches')
+          .select('id, start_year, end_year, batch_name')
+          .order('start_year', ascending: false);
+
+      if (response != null) {
+        _availableBatches = List<Map<String, dynamic>>.from(response);
+
+        if (_availableBatches.isNotEmpty) {
+          if (_selectedBatch == null) {
+            _selectedBatch = _availableBatches.first;
+          } else {
+            _selectedBatch = _availableBatches.firstWhere(
+              (b) => b['id'] == _selectedBatch!['id'],
+              orElse: () => _availableBatches.first,
+            );
+          }
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error fetching batches: $e");
+    }
+  }
+
+  Future<bool> createNewBatch(int startYear, int endYear) async {
+    try {
+      final bool alreadyExists = _availableBatches.any(
+        (batch) =>
+            batch['start_year'] == startYear && batch['end_year'] == endYear,
+      );
+
+      if (alreadyExists) {
+        debugPrint(
+          "Redundancy Blocked: Session $startYear-$endYear already exists.",
+        );
+
+        return false;
+      }
+
+      final String batchName = "Session $startYear-$endYear";
+      final supabase = Supabase.instance.client;
+      final newBatch = await supabase
+          .from('batches')
+          .insert({
+            'start_year': startYear,
+            'end_year': endYear,
+            'batch_name': batchName,
+          })
+          .select()
+          .single();
+
+      _availableBatches.add(newBatch);
+      _availableBatches.sort(
+        (a, b) => (b['start_year'] as int).compareTo(a['start_year'] as int),
+      );
+
+      _selectedBatch = newBatch;
+      notifyListeners();
+
+      fetchCoursesForSelectedBatch();
+
+      return true;
+    } catch (e) {
+      debugPrint("Error creating new batch: $e");
+      return false;
+    }
+  }
+
+  Future<void> fetchCoursesForSelectedBatch() async {
+    if (_selectedBatch == null) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('master_courses')
+          .select('id, course_code, title, credit_hours')
+          .eq('batch_id', _selectedBatch!['id'])
+          .order('title', ascending: true);
+
+      if (response != null) {
+        _filteredMasterCourses = List<Map<String, dynamic>>.from(response);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error loading batch-specific courses: $e");
+    }
+  }
+
+  void updateSelectedBatch(Map<String, dynamic>? newBatch) {
+    if (newBatch != null) {
+      _selectedBatch = newBatch;
+      notifyListeners();
+
+      fetchCoursesForSelectedBatch();
+    }
+  }
+
+  String selectedExamType = 'Mid-Term';
+
+  int midTermTarget = 0;
+  int finalTermTarget = 0;
+  int practicalTarget = 0;
+  bool hasPractical = true;
+
+  int vivaWeightage = 0;
+  int labTaskWeightage = 0;
+
+  void updateVivaWeightage(String value) {
+    int parsedValue = int.tryParse(value) ?? 0;
+
+    if (parsedValue > practicalTarget) {
+      parsedValue = practicalTarget;
+    }
+    if (parsedValue < 0) parsedValue = 0;
+
+    vivaWeightage = parsedValue;
+    labTaskWeightage = practicalTarget - vivaWeightage;
+    notifyListeners();
+  }
+
+  int get currentTargetMarks {
+    if (selectedExamType == 'Mid-Term') return midTermTarget;
+    if (selectedExamType == 'Final') return finalTermTarget;
+    if (selectedExamType == 'Practical') return practicalTarget;
+    return 0;
+  }
+
+  void parseCreditHours(String chString) {
+    RegExp regExp = RegExp(r'\((.*?)-(.*?)\)');
+    var match = regExp.firstMatch(chString);
+
+    if (match != null) {
+      int theoryCH = int.tryParse(match.group(1) ?? '0') ?? 0;
+      int practicalCH = int.tryParse(match.group(2) ?? '0') ?? 0;
+
+      int theoryMarks = theoryCH * 20;
+
+      midTermTarget = (theoryMarks * 0.30).round();
+      finalTermTarget = (theoryMarks * 0.60).round();
+      practicalTarget = practicalCH * 20;
+      vivaWeightage = (practicalTarget * 0.25).round();
+      labTaskWeightage = practicalTarget - vivaWeightage;
+
+      hasPractical = practicalCH > 0;
+
+      if (!hasPractical && selectedExamType == 'Practical') {
+        selectedExamType = 'Mid-Term';
+      }
+      notifyListeners();
+    }
+  }
+
+  void setExamType(String type) {
+    selectedExamType = type;
+    notifyListeners();
+  }
+
+  void toggleCloSelection(int index, bool? value) {
+    if (value != null) {
+      importedCLOs[index]['isSelected'] = value;
+      notifyListeners();
+    }
   }
 
   void _attachSaveListeners() {
-    mcqCountController.addListener(_saveDraft);
-    mcqMarksController.addListener(_saveDraft);
-    shortCountController.addListener(_saveDraft);
-    shortMarksController.addListener(_saveDraft);
-    longCountController.addListener(_saveDraft);
-    longMarksController.addListener(_saveDraft);
-    fillBlankCountController.addListener(_saveDraft);
-    fillBlankMarksController.addListener(_saveDraft);
+    mcqCountController.addListener(_onFormChanged);
+    mcqMarksController.addListener(_onFormChanged);
+    shortCountController.addListener(_onFormChanged);
+    shortMarksController.addListener(_onFormChanged);
+    longCountController.addListener(_onFormChanged);
+    longMarksController.addListener(_onFormChanged);
+    fillBlankCountController.addListener(_onFormChanged);
+    fillBlankMarksController.addListener(_onFormChanged);
   }
 
   Future<void> _saveDraft() async {
@@ -296,10 +567,15 @@ class AssessmentProvider extends ChangeNotifier {
   }
 
   void addDiagramQuestion() {
-    diagramTextControllers.add(TextEditingController());
-    diagramMarksControllers.add(TextEditingController(text: "5"));
+    final textCtrl = TextEditingController();
+    final marksCtrl = TextEditingController(text: "5");
+    marksCtrl.addListener(_onFormChanged);
+
+    diagramTextControllers.add(textCtrl);
+    diagramMarksControllers.add(marksCtrl);
     diagramImages.add(null);
-    notifyListeners();
+
+    _onFormChanged();
   }
 
   void removeDiagramQuestion(int index) {
@@ -308,7 +584,8 @@ class AssessmentProvider extends ChangeNotifier {
     diagramTextControllers.removeAt(index);
     diagramMarksControllers.removeAt(index);
     diagramImages.removeAt(index);
-    notifyListeners();
+
+    _onFormChanged();
   }
 
   Future<void> pickDiagramImage(int index, ImageSource source) async {
@@ -327,7 +604,6 @@ class AssessmentProvider extends ChangeNotifier {
     }
   }
 
-  // --- Syllabus AI Extraction ---
   Future<Map<String, dynamic>?> extractCourseWithGemini(XFile imageFile) async {
     final result = await _geminiService.extractCourseSyllabusFromImage(
       File(imageFile.path),
@@ -338,32 +614,49 @@ class AssessmentProvider extends ChangeNotifier {
   void toggleAIGenerateScenario(bool? value) {
     if (value != null) {
       letAIGenerateScenario = value;
-      _saveDraft();
-      notifyListeners();
+      _onFormChanged();
     }
   }
 
   void addCustomScenario() {
-    scenarioTextControllers.add(TextEditingController());
-    scenarioMarksControllers.add(TextEditingController());
-    notifyListeners();
+    final textCtrl = TextEditingController();
+    final marksCtrl = TextEditingController();
+    final langCtrl = TextEditingController();
+
+    marksCtrl.addListener(_onFormChanged);
+    langCtrl.addListener(_onFormChanged);
+
+    scenarioTextControllers.add(textCtrl);
+    scenarioMarksControllers.add(marksCtrl);
+    scenarioLangControllers.add(langCtrl);
+    scenarioTypes.add('Scenario');
+    _onFormChanged();
   }
 
   void removeCustomScenario(int index) {
     if (scenarioTextControllers.length > 1) {
       scenarioTextControllers[index].dispose();
       scenarioMarksControllers[index].dispose();
+      scenarioLangControllers[index].dispose();
+
       scenarioTextControllers.removeAt(index);
       scenarioMarksControllers.removeAt(index);
-      notifyListeners();
+      scenarioLangControllers.removeAt(index);
+      scenarioTypes.removeAt(index);
+      _onFormChanged();
     }
+  }
+
+  // 🚀 NEW: Update Scenario Type
+  void updateScenarioType(int index, String newType) {
+    scenarioTypes[index] = newType;
+    _onFormChanged();
   }
 
   void updatePaperCategory(String? newValue) {
     if (newValue != null) {
       selectedPaperCategory = newValue;
-      _saveDraft();
-      notifyListeners();
+      _onFormChanged();
     }
   }
 
@@ -385,7 +678,6 @@ class AssessmentProvider extends ChangeNotifier {
   Map<String, dynamic>? get generatedAssessment => _generatedAssessment;
 
   String _lastDocumentText = "";
-  String _lastDifficulty = "Standard";
   final Set<String> _regeneratingItems = {};
 
   bool isRegenerating(String type, int index) =>
@@ -445,10 +737,7 @@ class AssessmentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> triggerGeneration(
-    BuildContext context, {
-    required String difficulty,
-  }) async {
+  Future<void> triggerGeneration(BuildContext context) async {
     bool canProceed = await _checkAndPruneHistory(context);
     if (!canProceed) {
       return;
@@ -557,7 +846,6 @@ class AssessmentProvider extends ChangeNotifier {
         return;
       }
 
-      // 🚀 THE FIX: Helper to translate the Domain letter
       String getFullDomainName(String domainChar) {
         switch (domainChar.toUpperCase()) {
           case 'P':
@@ -570,31 +858,37 @@ class AssessmentProvider extends ChangeNotifier {
         }
       }
 
-      // 🚀 THE FIX: Inject BOTH Domain and BT Level into the CLO string!
-      List<String> activeCLOs = importedCLOs
-          .map((clo) {
-            String domainFull = getFullDomainName(
-              clo['domain']?.toString() ?? 'C',
-            );
-            return "[Domain: $domainFull] [BT Level: ${clo['bt_level']}] ${clo['description'].toString().trim()}";
-          })
-          .where((text) => text.isNotEmpty)
-          .toList();
+      List<String> activeCLOs = [];
+      for (int i = 0; i < importedCLOs.length; i++) {
+        final clo = importedCLOs[i];
+        if (clo['isSelected'] == true) {
+          String domainFull = getFullDomainName(
+            clo['domain']?.toString() ?? 'C',
+          );
+          activeCLOs.add(
+            "CLO ${i + 1}: [Domain: $domainFull] [BT Level: ${clo['bt_level']}] ${clo['description'].toString().trim()}",
+          );
+        }
+      }
 
       _lastDocumentText = combinedText;
-      _lastDifficulty = difficulty;
       _lastPaperCategory = selectedPaperCategory;
 
       List<Map<String, dynamic>> customScenarios = [];
 
+      // 🚀 THE FIX: Package language and type data!
       for (int i = 0; i < scenarioTextControllers.length; i++) {
         String text = scenarioTextControllers[i].text.trim();
         String marksText = scenarioMarksControllers[i].text.trim();
+        String type = scenarioTypes[i];
+        String lang = scenarioLangControllers[i].text.trim();
 
         if (text.isNotEmpty) {
           customScenarios.add({
             "text": text,
             "marks": int.tryParse(marksText) ?? 0,
+            "type": type,
+            "language": lang,
           });
         }
       }
@@ -632,8 +926,9 @@ class AssessmentProvider extends ChangeNotifier {
           ),
         );
       } else {
-        if (context.mounted)
+        if (context.mounted) {
           _showError(context, "AI failed to generate. Please try again.");
+        }
       }
     } catch (e) {
       _setLoading(false);
@@ -712,7 +1007,6 @@ class AssessmentProvider extends ChangeNotifier {
     longCountController.clear();
     longMarksController.clear();
 
-    // Clear the imported course on a fresh start
     clearImportedCourse();
 
     final prefs = await SharedPreferences.getInstance();
@@ -729,6 +1023,15 @@ class AssessmentProvider extends ChangeNotifier {
     shortMarksController.dispose();
     longCountController.dispose();
     longMarksController.dispose();
+    for (var ctrl in scenarioTextControllers) {
+      ctrl.dispose();
+    }
+    for (var ctrl in scenarioMarksControllers) {
+      ctrl.dispose();
+    }
+    for (var ctrl in scenarioLangControllers) {
+      ctrl.dispose();
+    }
     super.dispose();
   }
 }

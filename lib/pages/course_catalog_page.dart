@@ -20,8 +20,19 @@ class CourseCatalogPage extends StatefulWidget {
 class _CourseCatalogPageState extends State<CourseCatalogPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
-
   List<Map<String, dynamic>> _searchResults = [];
+
+  String? _selectedDepartmentId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<AssessmentProvider>();
+      provider.fetchBatches();
+      provider.fetchDepartments();
+    });
+  }
 
   void _performSearch(String query) {
     if (query.isEmpty) {
@@ -39,9 +50,33 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
       if (_searchController.text != query) return;
 
       try {
-        final response = await Supabase.instance.client
+        final provider = context.read<AssessmentProvider>();
+        final String? activeBatchId = provider.selectedBatch?['id'];
+
+        if (activeBatchId == null || _selectedDepartmentId == null) {
+          setState(() => _isSearching = false);
+          return;
+        }
+
+        final generalDeptId = provider.generalDepartment?['id'];
+
+        var supabaseQuery = Supabase.instance.client
             .from('master_courses')
-            .select('id, course_code, title')
+            .select('id, course_code, title, credit_hours, departments(name)')
+            .eq('batch_id', activeBatchId);
+
+        if (generalDeptId != null && _selectedDepartmentId != generalDeptId) {
+          supabaseQuery = supabaseQuery.or(
+            'department_id.eq.$_selectedDepartmentId,department_id.eq.$generalDeptId',
+          );
+        } else {
+          supabaseQuery = supabaseQuery.eq(
+            'department_id',
+            _selectedDepartmentId!,
+          );
+        }
+
+        final response = await supabaseQuery
             .or('course_code.ilike.%$query%,title.ilike.%$query%')
             .limit(15);
 
@@ -61,6 +96,8 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+    final assessmentProvider = context.watch<AssessmentProvider>();
+
     final hasSearched = _searchController.text.isNotEmpty;
     final noResults = hasSearched && !_isSearching && _searchResults.isEmpty;
 
@@ -97,6 +134,9 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildFilters(context, assessmentProvider, themeProvider),
+                const SizedBox(height: 20),
+
                 const Text(
                   "Search University Catalog",
                   style: TextStyle(
@@ -106,7 +146,7 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
                     fontSize: 18,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 const Text(
                   "Find your course to instantly import its official CLOs and PLOs.",
                   style: TextStyle(
@@ -116,25 +156,35 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Flat, theme-aware search bar
                 TextField(
                   controller: _searchController,
                   onChanged: _performSearch,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: TextStyle(
+                    color: themeProvider.isDarkMode
+                        ? Colors.white
+                        : Colors.black87,
                     fontFamily: 'Lato',
                   ),
                   decoration: InputDecoration(
                     hintText: "e.g., CS-304 or Programming",
-                    hintStyle: const TextStyle(color: Colors.black38),
+                    hintStyle: TextStyle(
+                      color: themeProvider.isDarkMode
+                          ? Colors.white54
+                          : Colors.black38,
+                    ),
                     prefixIcon: const Icon(
                       Icons.search,
                       color: AppColors.primary,
                     ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.clear,
-                              color: Colors.black38,
+                              color: themeProvider.isDarkMode
+                                  ? Colors.white54
+                                  : Colors.black38,
                             ),
                             onPressed: () {
                               _searchController.clear();
@@ -143,7 +193,9 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
                           )
                         : null,
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: themeProvider.isDarkMode
+                        ? Theme.of(context).colorScheme.background
+                        : Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
@@ -167,28 +219,173 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
     );
   }
 
-  Widget _buildResultsList() {
-    if (_searchResults.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildFilters(
+    BuildContext context,
+    AssessmentProvider provider,
+    ThemeProvider themeProvider,
+  ) {
+    return Column(
+      children: [
+        Row(
           children: [
-            Icon(
-              Icons.library_books_outlined,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withAlpha(100),
+            Expanded(
+              child: _buildFlatDropdown(
+                context: context,
+                value: provider.selectedBatch?['id'],
+                hint: "Select Session Batch",
+                items: provider.availableBatches,
+                displayKey: 'batch_name',
+                themeProvider: themeProvider,
+                onChanged: (newId) {
+                  if (newId != null) {
+                    final newBatch = provider.availableBatches.firstWhere(
+                      (b) => b['id'] == newId,
+                    );
+                    provider.updateSelectedBatch(newBatch);
+                    _performSearch(_searchController.text);
+                  }
+                },
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Search to import a course",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontFamily: 'Lato',
+            const SizedBox(width: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: themeProvider.isDarkMode
+                    ? Theme.of(context).colorScheme.background
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.add_chart_rounded,
+                  color: AppColors.primary,
+                ),
+                tooltip: "Create New Session",
+                onPressed: () {
+                  _showAddBatchDialog(context, provider);
+                },
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _buildFlatDropdown(
+          context: context,
+          value: _selectedDepartmentId,
+          hint: "Filter by Department",
+          items: provider.departments,
+          displayKey: 'name',
+          themeProvider: themeProvider,
+          onChanged: (newId) {
+            setState(() => _selectedDepartmentId = newId);
+            _performSearch(_searchController.text);
+          },
+        ),
+      ],
+    );
+  }
+
+  // 🚀 REBUILT: 100% Flat, opaque, and strictly theme-aware. Zero shadows/glass.
+  Widget _buildFlatDropdown({
+    required BuildContext context,
+    required String? value,
+    required String hint,
+    required List<Map<String, dynamic>> items,
+    required String displayKey,
+    required ThemeProvider themeProvider,
+    required Function(String?) onChanged,
+  }) {
+    final bgColor = themeProvider.isDarkMode
+        ? Theme.of(context).colorScheme.background
+        : Colors.white;
+    final textColor = themeProvider.isDarkMode ? Colors.white : Colors.black87;
+    final hintColor = themeProvider.isDarkMode
+        ? Colors.white54
+        : Colors.black38;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: bgColor,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.primary,
+          ),
+          hint: Text(hint, style: TextStyle(color: hintColor)),
+          selectedItemBuilder: (BuildContext context) {
+            return items.map<Widget>((item) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item[displayKey],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textColor,
+                    fontFamily: 'Lato',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              );
+            }).toList();
+          },
+          items: items.map((item) {
+            final isSelected = value == item['id'];
+            final isGeneral = item[displayKey].toString().contains('General');
+            return DropdownMenuItem<String>(
+              value: item['id'] as String,
+              child: Text(
+                item[displayKey],
+                style: TextStyle(
+                  color: isGeneral
+                      ? Colors.orange
+                      : (isSelected ? AppColors.primary : textColor),
+                  fontFamily: 'Lato',
+                  fontWeight: isSelected || isGeneral
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultsList() {
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.library_books_outlined,
+                size: 64,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withAlpha(100),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Select filters and search to import a course",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontFamily: 'Lato',
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -198,110 +395,173 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final course = _searchResults[index];
+        final deptName = course['departments']?['name'] ?? 'Unknown Dept';
+        final isGeneral = deptName.toString().contains('General');
+
         return Card(
           elevation: 0,
+          // 🚀 Flat card
           color: context.surface,
+          margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: Theme.of(context).colorScheme.outline.withAlpha(50),
             ),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.success.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.check_circle_outline,
-                color: AppColors.success,
-              ),
-            ),
-            // 🚀 FIX: Used course_code instead of code
-            title: Text(
-              "${course['course_code']}: ${course['title']}",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontFamily: 'Lato',
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: const Padding(
-              padding: EdgeInsets.only(top: 4.0),
-              child: Text(
-                "Official Catalog • Pre-loaded CLOs",
-                style: TextStyle(fontFamily: 'Lato', fontSize: 12),
-              ),
-            ),
-            trailing: ElevatedButton(
-              onPressed: () async {
-                final userId = Supabase.instance.client.auth.currentUser?.id;
-                if (userId == null) return;
-
-                try {
-                  // 1. Link the course to the user
-                  await Supabase.instance.client.from('user_courses').insert({
-                    'user_id': userId,
-                    'course_id': course['id'],
-                  });
-
-                  // 🚀 2. FIX: Fetch the actual CLOs from Supabase!
-                  final cloResponse = await Supabase.instance.client
-                      .from('master_clos')
-                      .select('description, domain, bt_level, plo_id')
-                      .eq('course_id', course['id']);
-
-                  if (!context.mounted) return;
-
-                  // 🚀 3. FIX: Pass the CLOs as the third parameter!
-                  context.read<AssessmentProvider>().setImportedCourse(
-                    course['course_code'],
-                    course['title'],
-                    List<Map<String, dynamic>>.from(cloResponse),
-                  );
-
-                  Navigator.pop(context);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Course & CLOs imported successfully!"),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "You already have this course in your library!",
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isGeneral
+                            ? Colors.orange.withAlpha(20)
+                            : AppColors.primary.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      backgroundColor: AppColors.error,
-                      behavior: SnackBarBehavior.floating,
+                      child: Icon(
+                        isGeneral ? Icons.public : Icons.account_balance,
+                        color: isGeneral ? Colors.orange : AppColors.primary,
+                      ),
                     ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${course['course_code']}: ${course['title']}",
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontFamily: 'Lato',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              _buildBadge(
+                                isGeneral ? "🌍 $deptName" : "🏛️ $deptName",
+                                isGeneral ? Colors.orange : AppColors.primary,
+                              ),
+                              _buildBadge(
+                                "⏱️ ${course['credit_hours'] ?? 'N/A'}",
+                                AppColors.success,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              child: const Text(
-                "Import",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      // 🚀 Restored the core import logic
+                      final userId =
+                          Supabase.instance.client.auth.currentUser?.id;
+                      if (userId == null) return;
+
+                      try {
+                        try {
+                          await Supabase.instance.client
+                              .from('user_courses')
+                              .insert({
+                                'user_id': userId,
+                                'course_id': course['id'],
+                              });
+                        } catch (insertError) {
+                          print(
+                            "Course is already in library. Proceeding to fetch data...",
+                          );
+                        }
+
+                        final cloResponse = await Supabase.instance.client
+                            .from('master_clos')
+                            .select('description, domain, bt_level, plo_id')
+                            .eq('course_id', course['id']);
+
+                        if (!context.mounted) return;
+
+                        context.read<AssessmentProvider>().setImportedCourse(
+                          course['course_code'],
+                          course['title'],
+                          List<Map<String, dynamic>>.from(cloResponse),
+                          course['credit_hours'] ?? "3(3-0)",
+                          deptName,
+                        );
+
+                        Navigator.pop(context);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Course loaded successfully!"),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Failed to load course: $e"),
+                            backgroundColor: AppColors.error,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      "Import Course",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Lato',
+        ),
+      ),
     );
   }
 
@@ -432,6 +692,7 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
+                  elevation: 0,
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -440,10 +701,8 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // The Manual Entry Button
             TextButton(
               onPressed: () {
-                // 🚀 Send them to the shiny new Manual Entry Page!
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -465,4 +724,122 @@ class _CourseCatalogPageState extends State<CourseCatalogPage> {
       ),
     );
   }
+}
+
+void _showAddBatchDialog(BuildContext context, AssessmentProvider provider) {
+  final startYearCtrl = TextEditingController();
+  final endYearCtrl = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: context.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "Add New Academic Session",
+          style: TextStyle(fontFamily: 'Lato', fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Enter the starting and ending years for the new batch.",
+              style: TextStyle(fontFamily: 'Lato', fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: UniversalTextField(
+                    controller: startYearCtrl,
+                    labelText: "Start Year",
+                    hintText: "e.g., 2027",
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: UniversalTextField(
+                    controller: endYearCtrl,
+                    labelText: "End Year",
+                    hintText: "e.g., 2031",
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              final startYear = int.tryParse(startYearCtrl.text);
+              final endYear = int.tryParse(endYearCtrl.text);
+
+              if (startYear == null ||
+                  endYear == null ||
+                  startYear >= endYear) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Please enter valid chronological years."),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(dialogContext); // Close dialog immediately
+
+              // Show loading indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Creating session..."),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+
+              final success = await provider.createNewBatch(startYear, endYear);
+
+              if (success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Session created successfully!"),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } else if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      "Failed to create session. It may already exist.",
+                    ),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              "Create",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
 }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class ForgotPasswordFlow {
-  // --- Dialog 1: Request Reset Email ---
   static void showEmailPrompt(
     BuildContext context, {
     String initialEmail = "",
@@ -74,16 +73,13 @@ class ForgotPasswordFlow {
                 return;
               }
 
-              // 1. Close this email dialog
               Navigator.pop(ctx);
 
-              // 2. Tell the AuthProvider to send the 6-digit code!
               final success = await context.read<AuthProvider>().resetPassword(
                 context,
                 email,
               );
 
-              // 3. IF SUCCESSFUL, OPEN DIALOG 2 (The OTP Input)!
               if (success && context.mounted) {
                 _showOTPDialog(context, email);
               }
@@ -102,7 +98,6 @@ class ForgotPasswordFlow {
     );
   }
 
-  // --- Dialog 2: Enter the 6-Digit Code ---
   static void _showOTPDialog(BuildContext context, String email) {
     final TextEditingController otpController = TextEditingController();
 
@@ -188,7 +183,6 @@ class ForgotPasswordFlow {
     );
   }
 
-  // --- Dialog 3: Create New Password ---
   static void _showNewPasswordDialog(BuildContext context) {
     final TextEditingController newPasswordController = TextEditingController();
 
