@@ -44,6 +44,18 @@ class ExportRepository {
         paperType = "Subjective";
       }
 
+      // Helper to safely map sub_parts
+      List<Map<String, dynamic>> mapSubParts(dynamic item) {
+        if (item['sub_parts'] != null && item['sub_parts'] is List) {
+          return (item['sub_parts'] as List).map((sp) => {
+            "label": sp['label'] ?? "a",
+            "question": sp['question'] ?? "",
+            "marks": sp['marks'] ?? 0,
+          }).toList();
+        }
+        return [];
+      }
+
       final payload = {
         "template_url": templateUrl,
         "show_clo_tags": showCloTags,
@@ -56,10 +68,25 @@ class ExportRepository {
           "credit_hours": creditHours,
           "paper_type": paperType,
           "marks": marksData,
-          "custom_scenarios": data['custom_scenarios'] ?? [],
+          "custom_scenarios": (data['custom_scenarios'] as List?)?.map((sc) => {
+            "text": sc['text'] ?? "",
+            "marks": sc['marks'] ?? 0,
+            "type": sc['type'] ?? "Scenario",
+            "sub_parts": mapSubParts(sc),
+          }).toList() ?? [],
           "mcqs": data['mcqs'] ?? [],
-          "shortQuestions": data['shortQuestions'] ?? [],
-          "longQuestions": data['longQuestions'] ?? [],
+          "shortQuestions": (data['shortQuestions'] as List?)?.map((sq) => {
+            "question": sq['question'] ?? "",
+            "idealAnswer": sq['idealAnswer'] ?? "",
+            "target_clo": sq['target_clo'],
+            "sub_parts": mapSubParts(sq),
+          }).toList() ?? [],
+          "longQuestions": (data['longQuestions'] as List?)?.map((lq) => {
+            "question": lq['question'] ?? "",
+            "gradingRubric": lq['gradingRubric'] ?? "",
+            "target_clo": lq['target_clo'],
+            "sub_parts": mapSubParts(lq),
+          }).toList() ?? [],
           "fillInTheBlanks": data['fillInTheBlanks'] ?? [],
           "diagram_questions": data['diagram_questions'] ?? [],
         },
@@ -87,6 +114,8 @@ class ExportRepository {
         );
         await SharePlus.instance.share(params);
         return true;
+      } else if (response.statusCode == 422) {
+        throw Exception("API Validation Error: ${response.body}");
       } else {
         throw Exception("API Error: ${response.statusCode}\nMessage: ${response.body}");
       }

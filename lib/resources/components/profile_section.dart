@@ -16,7 +16,6 @@ class ProfileSection extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // Safely fetch the current user ID, defaulting to an empty string if null
     final userId = Supabase.instance.client.auth.currentUser?.id ?? "";
 
     return Container(
@@ -41,7 +40,7 @@ class ProfileSection extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ProfilePictureWidget(
-                userId: userId, // Pass the safe string instead of forced unwrap
+                userId: userId,
                 initialAvatarUrl: authVM.avatarUrl,
                 radius: context.isMobile ? 22 : 28,
                 showEditBadge: false,

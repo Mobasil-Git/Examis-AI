@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../resources/components/fade_scale_animation.dart';
 import '../../resources/components/clo_input_section.dart';
-import '../../resources/components/diagram_input_section.dart';
-import '../../resources/components/generate_section.dart';
 import '../../resources/components/profile_section.dart';
 import '../../resources/components/upload_section.dart';
+import '../../resources/components/exam_ingredients_section.dart'; // NEW COMPONENT
 import '../../view_models/auth_view_model.dart';
 import '../../view_models/history_view_model.dart';
 import '../../view_models/assessment_view_model.dart';
@@ -34,6 +33,7 @@ class _DashboardViewState extends State<DashboardView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final assessmentVM = context.watch<AssessmentViewModel>();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -60,49 +60,43 @@ class _DashboardViewState extends State<DashboardView> {
                 children: [
                   const FadeScaleAnimation(delay: 800, child: ProfileSection()),
                   SizedBox(height: context.heightPercent(0.02)),
+
+                  // STEP 1: Upload Source
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.widthPercent(0.04),
-                    ),
-                    child: const FadeScaleAnimation(
-                      delay: 950,
-                      child: UploadSection(),
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.04)),
+                    child: const FadeScaleAnimation(delay: 950, child: UploadSection()),
                   ),
                   SizedBox(height: context.heightPercent(0.02)),
+
+                  // STEP 2: Exam Ingredients Selection
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.widthPercent(0.04),
-                    ),
-                    child: const FadeScaleAnimation(
-                      delay: 1100,
-                      child: CloInputSection(),
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.04)),
+                    child: const FadeScaleAnimation(delay: 1100, child: ExamIngredientsSection()),
                   ),
                   SizedBox(height: context.heightPercent(0.02)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.widthPercent(0.04),
+
+                  // STEP 3: Course & Objectives (Only show if an ingredient is selected)
+                  if (assessmentVM.hasSelectedIngredients) ...[
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.04)),
+                      child: const FadeScaleAnimation(delay: 1250, child: CloInputSection()),
                     ),
-                    child: const FadeScaleAnimation(
-                      delay: 1250,
-                      child: DiagramInputSection(),
-                    ),
-                  ),
-                  SizedBox(height: context.heightPercent(0.02)),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: context.widthPercent(0.04),
-                        right: context.widthPercent(0.04),
-                        bottom: context.heightPercent(0.015),
-                      ),
-                      child: const FadeScaleAnimation(
-                        delay: 1400,
-                        child: GenerateSection(),
-                      ),
-                    ),
-                  ),
+                    SizedBox(height: context.heightPercent(0.15)),
+                  ],
+
+                  // REMOVING THE OLD DIAGRAM AND GENERATE SECTIONS TEMPORARILY
+                  // We will absorb their functions into the CLO matrix in the next step.
+                  // Padding(
+                  //  padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.04)),
+                  //  child: const FadeScaleAnimation(delay: 1250, child: DiagramInputSection()),
+                  // ),
+                  // SizedBox(height: context.heightPercent(0.02)),
+                  // Expanded(
+                  //  child: Padding(
+                  //    padding: EdgeInsets.only(left: context.widthPercent(0.04), right: context.widthPercent(0.04), bottom: context.heightPercent(0.015)),
+                  //    child: const FadeScaleAnimation(delay: 1400, child: GenerateSection()),
+                  //  ),
+                  // ),
                 ],
               ),
             ),

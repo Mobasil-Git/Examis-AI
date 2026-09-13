@@ -6,19 +6,22 @@ import '../data/local/shared_pref_manager.dart';
 
 class GeminiRepository {
 
-  Future<GenerativeModel> _getDynamicModel() async {
+  Future<GenerativeModel> _getDynamicModel({bool isExtraction = false}) async {
     final prefs = SharedPrefManager();
     final tier = await prefs.getUserTier();
     final customKey = await prefs.getCustomApiKey();
 
-    String activeKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    String activeKey = isExtraction
+        ? (dotenv.env['DOCUMENT_EXTRACTION_API_KEY'] ?? '')
+        : (dotenv.env['GEMINI_API_KEY'] ?? '');
 
     if (tier == 'free' && customKey != null && customKey.isNotEmpty) {
       activeKey = customKey;
     }
 
+    // UPDATED: Leveraging Gemini 3.6 Flash for superior mult-step orchestration and structured output.
     return GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       apiKey: activeKey,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
@@ -34,54 +37,40 @@ class GeminiRepository {
 
     --- DOMAIN RULES ---
     1. Cognitive Domain: The question must test mental skills, theory, recall, and logical analysis.
-    2. Psychomotor Domain: The question MUST require the student to actively "do" something physical. In the context of Computer Science, this strictly means writing raw code, physically tracing an algorithm, or drafting a concrete technical diagram.
+    2. Psychomotor Domain: The question MUST require the student to actively "do" something physical.
     3. Affective Domain: The question must test the student's attitude, professional ethics, or understanding of societal impact.
-
-    --- BLOOM'S TAXONOMY RULES ---
-    [LEVELS 1 & 2: EASY (Knowledge & Comprehension)]
-    - Focus: Remember previously learned information and demonstrate an understanding of the facts.
-    - Verbs to use: Define, Describe, Duplicate, Identify, Label, List, Match, Memorize, Name, Order, Outline, Recognize, Relate, Recall, Repeat, Reproduce, Select, State, Classify, Convert, Defend, Discuss, Distinguish, Estimate, Explain, Express, Extend, Generalized, Give example(s), Indicate, Infer, Locate, Paraphrase, Predict, Rewrite, Review, Summarize, and Translate.
-
-    [LEVELS 3 & 4: MEDIUM (Application & Analysis)]
-    - Focus: Apply knowledge to actual situations, break down objects or ideas into simpler parts, and find evidence to support generalizations.
-    - Verbs to use: Apply, Change, Choose, Compute, Demonstrate, Discover, Dramatize, Employ, Illustrate, Interpret, Manipulate, Modify, Operate, Practice, Predict, Prepare, Produce, Relate, Schedule, Show, Sketch, Solve, Use, Write, Analyze, Appraise, Breakdown, Calculate, Categorize, Compare, Contrast, Criticize, Diagram, Differentiate, Discriminate, Distinguish, Examine, Experiment, Identify, Infer, Model, Outline, Point out, Question, Select, Separate, Subdivide, and Test.
-
-    [LEVELS 5 & 6: HARD (Synthesis & Evaluation)]
-    - Focus: Compile component ideas into a new whole or propose alternative solutions, and make and defend judgments based on internal evidence or external criteria.
-    - Verbs to use: Arrange, Assemble, Categorize, Collect, Combine, Comply, Compose, Construct, Create, Design, Develop, Devise, Explain, Formulate, Generate, Plan, Prepare, Rearrange, Reconstruct, Relate, Reorganize, Revise, Rewrite, Set up, Summarize, Synthesize, Tell, Write, Appraise, Argue, Assess, Attach, Choose, Compare, Conclude, Contrast, Defend, Describe, Discriminate, Estimate, Evaluate, Judge, Justify, Interpret, Predict, Rate, Select, Support, and Value.
     """;
   }
 
   Future<Map<String, dynamic>?> generateAssessment({
     required String documentText,
     required String paperCategory,
-    int mcqCount = 0,
-    int shortQCount = 0,
-    int longQCount = 0,
-    int fillBlankCount = 0,
-    List<String> activeCLOs = const [],
+    required String examBlueprint,
     bool letAIGenerateScenario = true,
     List<Map<String, dynamic>> customScenarios = const [],
     List<Map<String, dynamic>> diagramQuestions = const [],
+    bool allowSubParts = false,
   }) async {
     String bloomInstruction = _getMasterBloomTaxonomyRules();
 
-    String cloPromptSection = "";
-    String cloJsonField = "";
-
-    if (activeCLOs.isNotEmpty) {
-      cloPromptSection = """
-      COURSE LEARNING OBJECTIVES (CLOs):
-      ${activeCLOs.join('\n')}
-
-      CRITICAL CLO DISTRIBUTION RULES:
-      You are strictly required to map EVERY generated question to one of the CLOs listed above. 
-      1. Uniform Coverage: For each section (MCQs, Short Questions, Long Questions), you MUST generate one question per CLO before you are allowed to reuse a CLO. 
-      2. The Overflow Rule: If a section requires more questions than available CLOs, map the first questions to the available CLOs respectively. Assign the remaining questions to the most fundamentally important CLO.
-      3. The Distinct Rule (No Duplication): If a section requires fewer questions than available CLOs, you MUST pick distinct CLOs. Never assign the same CLO to two questions in the same section unless you have already used every single CLO at least once in that section.
-      4. JSON Output: Every single question object in your JSON response MUST include a "target_clo" key containing the exact CLO identifier provided above (e.g., "CLO 3").
+    String subPartField = "";
+    String subPartInstruction = "";
+    if (allowSubParts) {
+      subPartField = '''
+      ,
+      "sub_parts": [
+        {
+          "label": "a",
+          "question": "A logical sub-question",
+          "marks": 5
+        }
+      ]
+      ''';
+      subPartInstruction = """
+      SUB-PART RULE: 
+      If a Long Question, Short Question, or Custom Scenario requires detailed analysis, you MUST break the question down into logical "sub_parts" (e.g., a, b). 
+      Split the total marks for that question logically across the sub-parts.
       """;
-      cloJsonField = ',\n            "target_clo": "CLO X"';
     }
 
     String categoryInstruction = "";
@@ -99,26 +88,23 @@ class GeminiRepository {
     if (paperCategory != "Theory Based" && customScenarios.isNotEmpty) {
       String formattedRequests = customScenarios.asMap().entries.map((e) {
         final sc = e.value;
+        String cloTarget = sc['target_clo'] != null ? " (Target: ${sc['target_clo']})" : "";
         if (sc['type'] == 'Code') {
-          return "Item ${e.key + 1} (Marks: ${sc['marks']}): STRICT CODE GENERATION. Language: ${sc['language']}. Topic/Hint: ${sc['text']}. You MUST output pure, executable code. DO NOT include any code comments (no //, #, or /*). DO NOT write a story, narrative, or scenario.";
+          return "Item ${e.key + 1} (Marks: ${sc['marks']})$cloTarget: STRICT CODE GENERATION. Language: ${sc['language']}. Topic: ${sc['text']}.";
         } else {
-          return "Item ${e.key + 1} (Marks: ${sc['marks']}): STRICT SCENARIO GENERATION. Topic/Hint: ${sc['text']}. You MUST output a text-based real-world scenario or case study. DO NOT generate code blocks.";
+          return "Item ${e.key + 1} (Marks: ${sc['marks']})$cloTarget: STRICT SCENARIO GENERATION. Topic: ${sc['text']}.";
         }
       }).join("\n\n");
 
       if (letAIGenerateScenario) {
         scenarioInstruction = """
-        SCENARIO & CODE RULES: You MUST generate ${customScenarios.length} items based EXACTLY on the following instructions.
-        
-        CRITICAL CONSTRAINTS:
-        1. If an item is marked as STRICT CODE GENERATION, you are strictly forbidden from writing paragraph text. Output only the requested code without comments.
-        2. If an item is marked as STRICT SCENARIO GENERATION, you must write a realistic problem description. Output only text, no code.
-        
+        SCENARIO & CODE RULES: Generate ${customScenarios.length} items based EXACTLY on the following instructions.
+        For each generated item, include a "type" attribute set to exactly "Scenario" or "Code".
         [TEACHER INSTRUCTIONS]
         $formattedRequests
         """;
       } else {
-        scenarioInstruction = "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios. Do not change them.\n[EXACT TEXT]\n$formattedRequests";
+        scenarioInstruction = "SCENARIO RULE: You MUST use the EXACT text provided below for the scenarios.\n[EXACT TEXT]\n$formattedRequests";
       }
 
       scenarioJsonField = '''
@@ -126,7 +112,9 @@ class GeminiRepository {
         "custom_scenarios": [
           {
             "text": "The full scenario text or code block...",
-            "marks": 10
+            "marks": 10,
+            "type": "Scenario",
+            "target_clo": "CLO 1"$subPartField
           }
         ]
       ''';
@@ -137,13 +125,12 @@ class GeminiRepository {
 
     if (diagramQuestions.isNotEmpty) {
       String formattedDiagrams = diagramQuestions.asMap().entries.map(
-            (e) => "Diagram Question ${e.key + 1} (Marks: ${e.value['marks']}, URL: ${e.value['image_url']}): ${e.value['question']}",
+            (e) => "Diagram Question ${e.key + 1} (Marks: ${e.value['marks']}, URL: ${e.value['image_url']}, Target: ${e.value['target_clo'] ?? 'Any'}): ${e.value['question']}",
       ).join("\n");
 
       diagramInstruction = """
       DIAGRAM QUESTIONS RULE: The teacher has provided pre-written diagram-based questions.
       You MUST strictly pass these EXACT questions through to the final JSON under the "diagram_questions" array.
-      Do not change the text or the URLs.
       [TEACHER DIAGRAMS]
       $formattedDiagrams
       """;
@@ -154,7 +141,8 @@ class GeminiRepository {
           {
             "question": "The exact question text provided",
             "image_url": "The exact image_url provided",
-            "marks": 5$cloJsonField
+            "marks": 5,
+            "target_clo": "CLO X"
           }
         ]
       ''';
@@ -162,19 +150,20 @@ class GeminiRepository {
 
     final prompt = '''
       You are an expert educational assessment generator.
-      Analyze the following document text and generate a test based strictly on its contents.
+      Analyze the following document text and generate an exam based STRICTLY on the Exact Exam Blueprint provided below.
       
       $bloomInstruction
-      
       $categoryInstruction
       $scenarioInstruction
       $diagramInstruction
+      $subPartInstruction
 
-      Generate exactly $mcqCount Multiple Choice Questions, $fillBlankCount Fill in the Blank Questions, $shortQCount Short Answer Questions, and $longQCount Long Essay Questions.
+      CRITICAL BLUEPRINT ENFORCEMENT:
+      You are strictly required to generate the exact number of questions per CLO as defined in this blueprint. Do not invent questions. Do not skip questions. Map the "target_clo" field in the JSON exactly as requested.
 
-      CRITICAL CONSTRAINT FOR MCQs: The "options" MUST be extremely concise. Keep every single MCQ option strictly between 1 and 4 words maximum. Do not write full sentences for MCQ options.
-
-      $cloPromptSection
+      --- EXACT EXAM BLUEPRINT ---
+      $examBlueprint
+      ----------------------------
 
       You must return the data strictly in the following JSON structure:
       {
@@ -182,26 +171,30 @@ class GeminiRepository {
         "mcqs": [
           {
             "question": "The question text here?",
-            "options": ["Short Option", "One Word", "Max Four Words", "Brief Option"],
-            "correctAnswer": "The exact text of the correct option"$cloJsonField
+            "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+            "correctAnswer": "Exact text of the correct option",
+            "target_clo": "CLO X"
           }
         ],
         "fillInTheBlanks": [
           {
             "question": "The capital of France is ________.",
-            "answer": "Paris"$cloJsonField
+            "answer": "Paris",
+            "target_clo": "CLO X"
           }
         ],
         "shortQuestions": [
           {
             "question": "The short answer question text?",
-            "idealAnswer": "A brief, accurate ideal answer based on the text"$cloJsonField
+            "idealAnswer": "A brief ideal answer",
+            "target_clo": "CLO X"$subPartField
           }
         ],
         "longQuestions": [
           {
             "question": "The long essay question text?",
-            "gradingRubric": "A brief guide on what a correct answer should include"$cloJsonField
+            "gradingRubric": "Rubric guide",
+            "target_clo": "CLO X"$subPartField
           }
         ]$diagramJsonField
       }
@@ -212,7 +205,7 @@ class GeminiRepository {
       """
     ''';
 
-    final model = await _getDynamicModel();
+    final model = await _getDynamicModel(isExtraction: false);
     int maxRetries = 3;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -220,12 +213,10 @@ class GeminiRepository {
         final response = await model.generateContent([Content.text(prompt)]);
         final text = response.text;
         if (text == null || text.isEmpty) return null;
-        return jsonDecode(text);
+        return jsonDecode(text.replaceAll('```json', '').replaceAll('```', '').trim());
       } catch (e) {
         if (e.toString().contains('503') || e.toString().contains('429')) {
-          if (attempt == maxRetries) {
-            throw Exception("Gemini Rate Limit Hit. Please try again later.");
-          }
+          if (attempt == maxRetries) throw Exception("Gemini Rate Limit Hit. Please try again later.");
           await Future.delayed(Duration(seconds: attempt * 2));
         } else {
           throw Exception("Gemini API Error: $e");
@@ -312,7 +303,7 @@ class GeminiRepository {
     """
   ''';
 
-    final model = await _getDynamicModel();
+    final model = await _getDynamicModel(isExtraction: false);
     int maxRetries = 3;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -320,7 +311,7 @@ class GeminiRepository {
         final response = await model.generateContent([Content.text(prompt)]);
         final text = response.text;
         if (text == null || text.isEmpty) return null;
-        return jsonDecode(text);
+        return jsonDecode(text.replaceAll('```json', '').replaceAll('```', '').trim());
       } catch (e) {
         String errorString = e.toString();
         if (errorString.contains('503') || errorString.contains('429') || errorString.contains('Quota exceeded')) {
@@ -360,7 +351,7 @@ class GeminiRepository {
     """;
 
     try {
-      final model = await _getDynamicModel();
+      final model = await _getDynamicModel(isExtraction: true);
 
       final imageBytes = await imageFile.readAsBytes();
       final content = [
@@ -377,8 +368,8 @@ class GeminiRepository {
 
       String cleanJson = text.replaceAll('```json', '').replaceAll('```', '').trim();
       return jsonDecode(cleanJson) as Map<String, dynamic>;
-    } catch (e) {
-      throw Exception("Syllabus Extraction Error: $e");
+    } catch (e, stacktrace) {
+      throw Exception("Syllabus Extraction Error: $e\n$stacktrace");
     }
   }
 }

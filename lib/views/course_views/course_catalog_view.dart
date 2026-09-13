@@ -6,6 +6,7 @@ import '../../resources/components/universal_text_field.dart';
 import '../../view_models/assessment_view_model.dart';
 import '../../view_models/theme_view_model.dart';
 import '../../utils/responsive_ui.dart';
+import '../../utils/utils.dart'; // Added global Utils
 import 'manual_course_entry_view.dart';
 import 'review_syllabus_view.dart';
 
@@ -89,6 +90,130 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
     });
   }
 
+  Future<List<Map<String, dynamic>>?> _showCloSelectionDialog(
+    BuildContext context,
+    List<Map<String, dynamic>> allClos,
+    ColorScheme colorScheme,
+  ) async {
+    // Keep track of which CLOs are selected
+    List<bool> selectedStatus = List.generate(allClos.length, (index) => true);
+
+    return showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Text(
+                "Select Objectives",
+                style: TextStyle(
+                  fontFamily: 'Lato',
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Choose the CLOs you want to import into your matrix for this exam.",
+                      style: TextStyle(
+                        fontFamily: 'Lato',
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    SizedBox(height: context.heightPercent(0.016)),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: allClos.length,
+                        itemBuilder: (context, index) {
+                          final clo = allClos[index];
+                          return CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: colorScheme.primary,
+                            title: Text(
+                              "CLO ${index + 1}",
+                              style: TextStyle(
+                                fontFamily: 'Lato',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: Text(
+                              clo['description'] ?? "",
+                              style: TextStyle(
+                                fontFamily: 'Lato',
+                                fontSize: 12,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            value: selectedStatus[index],
+                            onChanged: (bool? value) {
+                              setState(() {
+                                selectedStatus[index] = value ?? false;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: colorScheme.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    // Filter the CLOs based on the checked status
+                    List<Map<String, dynamic>> selectedClos = [];
+                    for (int i = 0; i < allClos.length; i++) {
+                      if (selectedStatus[i]) {
+                        selectedClos.add(allClos[i]);
+                      }
+                    }
+                    Navigator.pop(context, selectedClos);
+                  },
+                  child: const Text(
+                    "Import Selected",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -102,8 +227,9 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        // Dynamic AppBar coloring based on theme mode
-        backgroundColor: themeVM.isDarkMode ? colorScheme.surface : colorScheme.primary,
+        backgroundColor: themeVM.isDarkMode
+            ? colorScheme.surface
+            : colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -163,15 +289,15 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                     prefixIcon: Icon(Icons.search, color: colorScheme.primary),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                      icon: Icon(
-                        Icons.clear,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        _performSearch("");
-                      },
-                    )
+                            icon: Icon(
+                              Icons.clear,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              _performSearch("");
+                            },
+                          )
                         : null,
                     filled: true,
                     fillColor: theme.scaffoldBackgroundColor,
@@ -187,10 +313,10 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
           Expanded(
             child: _isSearching
                 ? Center(
-              child: CircularProgressIndicator(
-                color: colorScheme.primary,
-              ),
-            )
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
+                  )
                 : noResults
                 ? _buildNotFoundState(context, colorScheme)
                 : _buildResultsList(context, colorScheme),
@@ -201,11 +327,11 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
   }
 
   Widget _buildFilters(
-      BuildContext context,
-      AssessmentViewModel vm,
-      ColorScheme colorScheme,
-      ThemeViewModel themeVM,
-      ) {
+    BuildContext context,
+    AssessmentViewModel vm,
+    ColorScheme colorScheme,
+    ThemeViewModel themeVM,
+  ) {
     return Column(
       children: [
         Row(
@@ -221,7 +347,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                 onChanged: (newId) {
                   if (newId != null) {
                     final newBatch = vm.availableBatches.firstWhere(
-                          (b) => b['id'] == newId,
+                      (b) => b['id'] == newId,
                     );
                     vm.updateSelectedBatch(newBatch);
                     _performSearch(_searchController.text);
@@ -273,8 +399,8 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
 
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: context.widthPercent(0.04),
-          vertical: context.heightPercent(0.005)
+        horizontal: context.widthPercent(0.04),
+        vertical: context.heightPercent(0.005),
       ),
       decoration: BoxDecoration(
         color: bgColor,
@@ -322,8 +448,8 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                   color: isGeneral
                       ? Colors.orange
                       : (isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurface),
+                            ? colorScheme.primary
+                            : colorScheme.onSurface),
                   fontFamily: 'Lato',
                   fontWeight: isSelected || isGeneral
                       ? FontWeight.bold
@@ -438,7 +564,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                 SizedBox(height: context.heightPercent(0.02)),
                 SizedBox(
                   width: double.infinity,
-                  height: context.heightPercent(0.06), // Responsive Button
+                  height: context.heightPercent(0.06),
                   child: ElevatedButton(
                     onPressed: () async {
                       final userId =
@@ -446,42 +572,60 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                       if (userId == null) return;
 
                       try {
-                        try {
-                          await Supabase.instance.client
-                              .from('user_courses')
-                              .insert({
-                            'user_id': userId,
-                            'course_id': course['id'],
-                          });
-                        } catch (_) {}
-
+                        // 1. Fetch all CLOs for the course first
                         final cloResponse = await Supabase.instance.client
                             .from('master_clos')
                             .select('description, domain, bt_level, plo_id')
                             .eq('course_id', course['id']);
 
+                        final allClos = List<Map<String, dynamic>>.from(
+                          cloResponse,
+                        );
+
                         if (!context.mounted) return;
+
+                        // 2. Show the selection dialog
+                        final selectedClos = await _showCloSelectionDialog(
+                          context,
+                          allClos,
+                          colorScheme,
+                        );
+
+                        // If they cancelled the dialog or selected 0 CLOs, abort import
+                        if (selectedClos == null || selectedClos.isEmpty)
+                          return;
+
+                        // 3. Register the course to the user's library (ignore if already exists)
+                        try {
+                          await Supabase.instance.client
+                              .from('user_courses')
+                              .insert({
+                                'user_id': userId,
+                                'course_id': course['id'],
+                              });
+                        } catch (_) {}
+
+                        if (!context.mounted) return;
+
                         context.read<AssessmentViewModel>().setImportedCourse(
                           course['course_code'],
                           course['title'],
-                          List<Map<String, dynamic>>.from(cloResponse),
+                          selectedClos,
                           course['credit_hours'] ?? "3(3-0)",
                           deptName,
                         );
 
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Course loaded successfully!"),
-                            backgroundColor: Colors.green,
-                          ),
+                        Navigator.pop(context); // Close the catalog view
+                        Utils.showSnackBar(
+                          context,
+                          "Course loaded successfully!",
+                          Colors.green,
                         );
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Failed to load course: $e"),
-                            backgroundColor: colorScheme.error,
-                          ),
+                        Utils.showSnackBar(
+                          context,
+                          "Failed to load course: $e",
+                          colorScheme.error,
                         );
                       }
                     },
@@ -609,33 +753,26 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
 
                         if (success == true && context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                "Course published to Catalog and added to your library!",
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
+                          Utils.showSnackBar(
+                            context,
+                            "Course published to Catalog and added to your library!",
+                            Colors.green,
                           );
                         }
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              "Failed to extract data. Please try a clearer image.",
-                            ),
-                            backgroundColor: colorScheme.error,
-                          ),
+                        Utils.showSnackBar(
+                          context,
+                          "Failed to extract data. Please try a clearer image.",
+                          colorScheme.error,
                         );
                       }
                     } catch (e) {
                       if (!context.mounted) return;
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Error: $e"),
-                          backgroundColor: colorScheme.error,
-                        ),
+                      Utils.showSnackBar(
+                        context,
+                        "Error: $e",
+                        colorScheme.error,
                       );
                     }
                   }
@@ -664,14 +801,12 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
             ),
             SizedBox(height: context.heightPercent(0.02)),
             TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ManualCourseEntryView(),
-                  ),
-                );
-              },
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ManualCourseEntryView(),
+                ),
+              ),
               child: Text(
                 "Enter Manually",
                 style: TextStyle(
@@ -689,10 +824,10 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
 }
 
 void _showAddBatchDialog(
-    BuildContext context,
-    AssessmentViewModel vm,
-    ColorScheme colorScheme,
-    ) {
+  BuildContext context,
+  AssessmentViewModel vm,
+  ColorScheme colorScheme,
+) {
   final startYearCtrl = TextEditingController();
   final endYearCtrl = TextEditingController();
 
@@ -765,42 +900,34 @@ void _showAddBatchDialog(
               if (startYear == null ||
                   endYear == null ||
                   startYear >= endYear) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text(
-                      "Please enter valid chronological years.",
-                    ),
-                    backgroundColor: colorScheme.error,
-                  ),
+                Utils.showSnackBar(
+                  context,
+                  "Please enter valid chronological years.",
+                  colorScheme.error,
                 );
                 return;
               }
 
               Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Creating session..."),
-                  duration: Duration(seconds: 1),
-                ),
+              Utils.showSnackBar(
+                context,
+                "Creating session...",
+                Colors.blueAccent,
               );
 
               final success = await vm.createNewBatch(startYear, endYear);
 
               if (success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Session created successfully!"),
-                    backgroundColor: Colors.green,
-                  ),
+                Utils.showSnackBar(
+                  context,
+                  "Session created successfully!",
+                  Colors.green,
                 );
               } else if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text(
-                      "Failed to create session. It may already exist.",
-                    ),
-                    backgroundColor: colorScheme.error,
-                  ),
+                Utils.showSnackBar(
+                  context,
+                  "Failed to create session. It may already exist.",
+                  colorScheme.error,
                 );
               }
             },

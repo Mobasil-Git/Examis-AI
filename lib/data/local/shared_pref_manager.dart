@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SharedPrefManager {
   static const String _keyLastScreen = 'last_active_screen';
@@ -7,6 +8,8 @@ class SharedPrefManager {
   static const String _keyHasSeenTierSelection = 'has_seen_tier_selection';
   static const String _keyUserTier = 'user_tier';
   static const String _keyCustomApiKey = 'custom_api_key';
+
+  final _secureStorage = const FlutterSecureStorage();
 
   Future<void> saveLastActiveScreen(String routeName) async {
     final prefs = await SharedPreferences.getInstance();
@@ -43,7 +46,6 @@ class SharedPrefManager {
     await prefs.remove(_keyLastScreen);
   }
 
-  // --- BYOK & Tier Methods ---
   Future<bool> hasSeenTierSelection() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyHasSeenTierSelection) ?? false;
@@ -65,12 +67,14 @@ class SharedPrefManager {
   }
 
   Future<void> saveCustomApiKey(String apiKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyCustomApiKey, apiKey);
+    await _secureStorage.write(key: _keyCustomApiKey, value: apiKey);
   }
 
   Future<String?> getCustomApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyCustomApiKey);
+    return await _secureStorage.read(key: _keyCustomApiKey);
+  }
+
+  Future<void> deleteCustomApiKey() async {
+    await _secureStorage.delete(key: _keyCustomApiKey);
   }
 }

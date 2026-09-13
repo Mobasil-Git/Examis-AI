@@ -109,11 +109,11 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } on AuthException catch (e) {
-      _showError(context, e.message);
+      if (context.mounted) Utils.showSnackBar(context, e.message, AppColors.error);
       _setLoading(false);
       return false;
     } catch (e) {
-      _showError(context, "An unexpected error occurred.");
+      if (context.mounted) Utils.showSnackBar(context, "An unexpected error occurred.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -131,11 +131,11 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } on AuthException catch (e) {
-      _showError(context, e.message);
+      if (context.mounted) Utils.showSnackBar(context, e.message, AppColors.error);
       _setLoading(false);
       return false;
     } catch (e) {
-      _showError(context, "An unexpected error occurred.");
+      if (context.mounted) Utils.showSnackBar(context, "An unexpected error occurred.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -169,7 +169,7 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _showError(context, "Failed to update profile.");
+      if (context.mounted) Utils.showSnackBar(context, "Failed to update profile.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -184,7 +184,7 @@ class AuthViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint(e.toString());
-      _showError(context, "Failed to delete account.");
+      if (context.mounted) Utils.showSnackBar(context, "Failed to delete account.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -197,7 +197,7 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _showError(context, "Failed to send feedback. Please try again.");
+      if (context.mounted) Utils.showSnackBar(context, "Failed to send feedback. Please try again.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -213,11 +213,11 @@ class AuthViewModel extends ChangeNotifier {
       Utils.showSnackBar(context, "Recovery code sent! Check your email.", AppColors.success);
       return true;
     } on AuthException catch (e) {
-      _showError(context, e.message);
+      if (context.mounted) Utils.showSnackBar(context, e.message, AppColors.error);
       _setLoading(false);
       return false;
     } catch (e) {
-      _showError(context, "An unexpected error occurred.");
+      if (context.mounted) Utils.showSnackBar(context, "An unexpected error occurred.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -230,11 +230,11 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } on AuthException catch (e) {
-      _showError(context, e.message);
+      if (context.mounted) Utils.showSnackBar(context, e.message, AppColors.error);
       _setLoading(false);
       return false;
     } catch (e) {
-      _showError(context, "Invalid code or an unexpected error occurred.");
+      if (context.mounted) Utils.showSnackBar(context, "Invalid code or an unexpected error occurred.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -247,7 +247,7 @@ class AuthViewModel extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _showError(context, "Failed to update password.");
+      if (context.mounted) Utils.showSnackBar(context, "Failed to update password.", AppColors.error);
       _setLoading(false);
       return false;
     }
@@ -276,13 +276,8 @@ class AuthViewModel extends ChangeNotifier {
       if (!context.mounted) return false;
 
       debugPrint('ViewModel: Showing error snackbar to user.');
-      _showError(context, e.toString());
+      Utils.showSnackBar(context, e.toString(), AppColors.error);
       return false;
     }
-  }
-
-  void _showError(BuildContext context, String message) {
-    if (!context.mounted) return;
-    Utils.showSnackBar(context, message, AppColors.error);
   }
 }

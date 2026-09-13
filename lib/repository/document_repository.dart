@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 
 class DocumentRepository {
-  final String _extractUrl = dotenv.env['WEB_CLIENT_ID']!;
+  final String _extractUrl = dotenv.env['DOCUMENT_EXTRACTION_API_KEY']!;
 
   Future<String?> extractTextFromFiles(List<PlatformFile> files) async {
     var request = http.MultipartRequest('POST', Uri.parse(_extractUrl));
