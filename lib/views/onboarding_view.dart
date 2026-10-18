@@ -31,17 +31,20 @@ class _OnboardingViewState extends State<OnboardingView> {
   List<OnboardingContent> contents = [
     OnboardingContent(
       title: "Upload Your Curriculum",
-      description: "Simply upload your existing .pdf, .docx, or .pptx files. Exami AI will read and understand your material instantly.",
+      description:
+          "Simply upload your existing .pdf, .docx, or .pptx files. Exami AI will read and understand your material instantly.",
       lottiePath: "assets/animations/lottie_animations/upload.json",
     ),
     OnboardingContent(
       title: "Set Your Variations",
-      description: "Choose how many MCQs, short, and long questions you need. Generate multiple unique variations to prevent cheating.",
+      description:
+          "Choose how many MCQs, short, and long questions you need. Generate multiple unique variations to prevent cheating.",
       lottiePath: "assets/animations/lottie_animations/settings.json",
     ),
     OnboardingContent(
       title: "Download & Print",
-      description: "Get perfectly formatted, ready-to-print assessment papers in seconds. Save hours of manual prep time.",
+      description:
+          "Get perfectly formatted, ready-to-print assessment papers in seconds. Save hours of manual prep time.",
       lottiePath: "assets/animations/lottie_animations/download.json",
     ),
   ];
@@ -114,8 +117,8 @@ class _OnboardingViewState extends State<OnboardingView> {
           ),
           Container(
             padding: EdgeInsets.symmetric(
-                horizontal: context.widthPercent(0.06),
-                vertical: context.heightPercent(0.03)
+              horizontal: context.widthPercent(0.06),
+              vertical: context.heightPercent(0.03),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -123,7 +126,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                 Row(
                   children: List.generate(
                     contents.length,
-                        (index) => buildDot(index, context, colorScheme),
+                    (index) => buildDot(index, context, colorScheme),
                   ),
                 ),
                 GestureDetector(
@@ -132,7 +135,10 @@ class _OnboardingViewState extends State<OnboardingView> {
                       // Save directly to SharedPreferences
                       await SharedPrefManager().completeFirstTimeLaunch();
                       if (context.mounted) {
-                        Navigator.pushReplacementNamed(context, RouteNames.login);
+                        Navigator.pushReplacementNamed(
+                          context,
+                          RouteNames.login,
+                        );
                       }
                     } else {
                       _controller.nextPage(
@@ -143,14 +149,18 @@ class _OnboardingViewState extends State<OnboardingView> {
                   },
                   child: Container(
                     height: context.heightPercent(0.06),
-                    padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06)),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.widthPercent(0.06),
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.primary,
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: Center(
                       child: Text(
-                        currentIndex == contents.length - 1 ? "Get Started" : "Next",
+                        currentIndex == contents.length - 1
+                            ? "Get Started"
+                            : "Next",
                         style: TextStyle(
                           color: Colors.white,
                           fontFamily: 'Lato',
@@ -177,7 +187,9 @@ class _OnboardingViewState extends State<OnboardingView> {
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: currentIndex == index ? colorScheme.primary : colorScheme.onSurfaceVariant.withAlpha(120),
+        color: currentIndex == index
+            ? colorScheme.primary
+            : colorScheme.onSurfaceVariant.withAlpha(120),
       ),
     );
   }

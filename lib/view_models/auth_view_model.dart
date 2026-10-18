@@ -22,7 +22,6 @@ class AuthViewModel extends ChangeNotifier {
   int _storageUsedBytes = 0;
   int _storageLimitBytes = 52428800;
 
-  String _tier = 'free';
   String? _customApiKey;
 
   String? get avatarUrl => _avatarUrl;
@@ -30,11 +29,10 @@ class AuthViewModel extends ChangeNotifier {
   String get userName => _userName;
   int get storageUsedBytes => _storageUsedBytes;
   int get storageLimitBytes => _storageLimitBytes;
-  String get tier => _tier;
   String? get customApiKey => _customApiKey;
 
-  // Crucial Lock Logic - Safe check for custom API key
-  bool get isAppUnlocked => _tier == 'premium' || (_tier == 'free' && _customApiKey != null && _customApiKey!.isNotEmpty == true);
+  // Crucial Lock Logic - Strictly checks for custom API key
+  bool get isAppUnlocked => _customApiKey != null && _customApiKey!.isNotEmpty == true;
 
   AuthViewModel() {
     _supabase.auth.onAuthStateChange.listen((data) {
@@ -62,25 +60,11 @@ class AuthViewModel extends ChangeNotifier {
       _storageUsedBytes = response['storage_used_bytes'] ?? 0;
       _storageLimitBytes = response['storage_limit_bytes'] ?? 52428800;
 
-      _tier = response['tier'] ?? 'free';
-      await _prefManager.saveUserTier(_tier);
-
       _customApiKey = await _prefManager.getCustomApiKey();
 
       notifyListeners();
     } catch (e) {
       debugPrint("Error loading profile: $e");
-    }
-  }
-
-  Future<void> updateTier(String newTier) async {
-    _tier = newTier;
-    notifyListeners();
-    await _prefManager.saveUserTier(newTier);
-    try {
-      await _authRepo.updateUserTier(newTier);
-    } catch (e) {
-      debugPrint("Failed to sync tier to Supabase: $e");
     }
   }
 

@@ -246,99 +246,28 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           SizedBox(height: context.heightPercent(0.03)),
 
-          _buildSectionHeader(context, "SUBSCRIPTION", colorScheme),
-
+          _buildSectionHeader(context, "API CONFIGURATION", colorScheme),
+          _buildListTile(
+            context,
+            icon: Icons.key_rounded,
+            title: "Google Gemini API Key",
+            subtitle: hasCustomKey
+                ? "Key Active - Tap to update"
+                : "Add key to unlock generation",
+            iconColor: hasCustomKey ? Colors.green : colorScheme.error,
+            onTap: () =>
+                Navigator.pushNamed(context, RouteNames.byokSettings),
+            colorScheme: colorScheme,
+          ),
           Padding(
-            padding: EdgeInsets.only(bottom: context.heightPercent(0.02)),
-            child: Material(
-              color: authVM.tier == 'premium'
-                  ? Colors.amber.withAlpha(20)
-                  : colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: authVM.tier == 'premium'
-                      ? Colors.amber
-                      : colorScheme.outline.withAlpha(50),
-                ),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: ListTile(
-                leading: Icon(
-                  authVM.tier == 'premium'
-                      ? Icons.workspace_premium
-                      : Icons.stars_rounded,
-                  color: authVM.tier == 'premium'
-                      ? Colors.amber
-                      : colorScheme.primary,
-                  size: 32,
-                ),
-                title: Text(
-                  authVM.tier == 'premium' ? "Premium Member" : "Free Tier",
-                  style: TextStyle(
-                    fontFamily: 'Lato',
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                subtitle: Text(
-                  authVM.tier == 'premium'
-                      ? "All features unlocked"
-                      : "Tap to Upgrade to Premium",
-                  style: TextStyle(
-                    fontFamily: 'Lato',
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                trailing: authVM.tier == 'free'
-                    ? SizedBox(
-                        height: 35,
-                        width: 90,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pushNamed(
-                            context,
-                            RouteNames.tierSelection,
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            shape: const StadiumBorder(),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          child: const Text(
-                            "Upgrade",
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
+            padding: EdgeInsets.symmetric(
+              vertical: context.heightPercent(0.01),
+            ),
+            child: Divider(
+              color: colorScheme.outline.withAlpha(50),
+              thickness: 1,
             ),
           ),
-
-          if (authVM.tier == 'free') ...[
-            _buildListTile(
-              context,
-              icon: Icons.key_rounded,
-              title: "API Key Configuration",
-              subtitle: hasCustomKey
-                  ? "Custom Key Active"
-                  : "Add key to unlock generation",
-              iconColor: hasCustomKey ? Colors.green : Colors.orange,
-              onTap: () =>
-                  Navigator.pushNamed(context, RouteNames.byokSettings),
-              colorScheme: colorScheme,
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: context.heightPercent(0.01),
-              ),
-              child: Divider(
-                color: colorScheme.outline.withAlpha(50),
-                thickness: 1,
-              ),
-            ),
-          ],
 
           Container(
             padding: EdgeInsets.all(context.widthPercent(0.05)),
@@ -481,12 +410,13 @@ class _SettingsViewState extends State<SettingsView> {
             hideTrailing: true,
             onTap: () async {
               await authVM.signOut(context);
-              if (context.mounted)
+              if (context.mounted) {
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   RouteNames.login,
-                  (route) => false,
+                      (route) => false,
                 );
+              }
             },
             colorScheme: colorScheme,
           ),
@@ -498,10 +428,10 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildSectionHeader(
-    BuildContext context,
-    String title,
-    ColorScheme colorScheme,
-  ) {
+      BuildContext context,
+      String title,
+      ColorScheme colorScheme,
+      ) {
     return Padding(
       padding: EdgeInsets.only(
         bottom: context.heightPercent(0.015),
@@ -521,16 +451,16 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildListTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? titleColor,
-    bool hideTrailing = false,
-    required ColorScheme colorScheme,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        String? subtitle,
+        required VoidCallback onTap,
+        Color? iconColor,
+        Color? titleColor,
+        bool hideTrailing = false,
+        required ColorScheme colorScheme,
+      }) {
     return Padding(
       padding: EdgeInsets.only(bottom: context.heightPercent(0.015)),
       child: Material(
@@ -552,13 +482,13 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           subtitle: subtitle != null
               ? Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: 'Lato',
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                )
+            subtitle,
+            style: TextStyle(
+              fontFamily: 'Lato',
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          )
               : null,
           trailing: hideTrailing
               ? null
@@ -570,13 +500,13 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildSwitchTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    required ColorScheme colorScheme,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required bool value,
+        required ValueChanged<bool> onChanged,
+        required ColorScheme colorScheme,
+      }) {
     return Padding(
       padding: EdgeInsets.only(bottom: context.heightPercent(0.015)),
       child: Material(

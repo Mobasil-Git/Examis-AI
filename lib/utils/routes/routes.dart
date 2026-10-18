@@ -5,7 +5,6 @@ import '../../views/onboarding_view.dart';
 import '../../views/dashboard_views/master_layout_view.dart';
 import '../../views/auth_views/login_view.dart';
 import '../../views/auth_views/sign_up_view.dart';
-import '../../views/subscription_views/tier_selection_view.dart';
 import '../../views/subscription_views/byok_settings_view.dart';
 
 class Routes {
@@ -23,8 +22,6 @@ class Routes {
         return MaterialPageRoute(builder: (context) => const LoginView());
       case RouteNames.signUp:
         return MaterialPageRoute(builder: (context) => const SignupView());
-      case RouteNames.tierSelection:
-        return MaterialPageRoute(builder: (context) => const TierSelectionView());
       case RouteNames.byokSettings:
         return MaterialPageRoute(builder: (context) => const BYOKSettingsView());
 

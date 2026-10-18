@@ -56,17 +56,12 @@ class AuthRepository {
     return await _supabase
         .from('profiles')
         .select(
-          'full_name, avatar_url, storage_used_bytes, storage_limit_bytes, tier',
-        ) // Added 'tier'
+          'full_name, avatar_url, storage_used_bytes, storage_limit_bytes',
+        )
         .eq('id', user.id)
         .single();
   }
 
-  Future<void> updateUserTier(String tier) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception("No user logged in.");
-    await _supabase.from('profiles').update({'tier': tier}).eq('id', userId);
-  }
 
   Future<void> updateProfile(String newName, String? newPassword) async {
     final userId = _supabase.auth.currentUser?.id;

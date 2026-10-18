@@ -57,12 +57,7 @@ class _SplashViewState extends State<SplashView> {
     try {
       await supabase.from('profiles').select('id').limit(1).timeout(const Duration(seconds: 4));
 
-      final hasSeenTier = await SharedPrefManager().hasSeenTierSelection();
-      if (!hasSeenTier) {
-        _routeTo(RouteNames.tierSelection);
-      } else {
         _routeTo(RouteNames.home);
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

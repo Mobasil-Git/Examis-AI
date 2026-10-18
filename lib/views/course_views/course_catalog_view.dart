@@ -172,37 +172,54 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                   ],
                 ),
               ),
+              actionsAlignment: MainAxisAlignment.center,
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text(
-                    "Cancel",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: colorScheme.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+
+                SizedBox( width: context.widthPercent(0.3),
+                  child: ElevatedButton(
+                    style: OutlinedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: Colors.grey
+                        )
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context, null),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.grey),
                     ),
                   ),
-                  onPressed: () {
-                    // Filter the CLOs based on the checked status
-                    List<Map<String, dynamic>> selectedClos = [];
-                    for (int i = 0; i < allClos.length; i++) {
-                      if (selectedStatus[i]) {
-                        selectedClos.add(allClos[i]);
+                ),
+                SizedBox(
+                  width: context.widthPercent(0.3),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: colorScheme.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      // Filter the CLOs based on the checked status
+                      List<Map<String, dynamic>> selectedClos = [];
+                      for (int i = 0; i < allClos.length; i++) {
+                        if (selectedStatus[i]) {
+                          selectedClos.add(allClos[i]);
+                        }
                       }
-                    }
-                    Navigator.pop(context, selectedClos);
-                  },
-                  child: const Text(
-                    "Import Selected",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      Navigator.pop(context, selectedClos);
+                    },
+                    child: const Text(
+                      "Import",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

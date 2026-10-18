@@ -19,17 +19,17 @@ class FeatureLockOverlay extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_person_rounded, size: 80, color: colorScheme.primary),
+              Icon(Icons.vpn_key_rounded, size: 80, color: colorScheme.primary),
               SizedBox(height: context.heightPercent(0.02)),
               Text(
-                "Feature Locked",
+                "API Key Required",
                 style: TextStyle(fontFamily: 'Lato', fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
               SizedBox(height: context.heightPercent(0.01)),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.1)),
                 child: Text(
-                  "You must either add your own Gemini API Key or upgrade to Premium to unlock assessment generation.",
+                  "Please enter your free Google Gemini API Key in Settings to unlock assessment generation.",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontFamily: 'Lato', fontSize: 14, color: colorScheme.onSurfaceVariant),
                 ),

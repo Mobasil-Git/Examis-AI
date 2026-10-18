@@ -7,12 +7,30 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ExportRepository {
+  String _getFullDepartmentName(String shortName) {
+    final String cleanName = shortName.trim().toUpperCase();
+
+    final Map<String, String> departmentMap = {
+      "CS": "Computing Sciences",
+      "IT": "Information Technology",
+      "SE": "Software Engineering",
+      "AI": "Artificial Intelligence",
+      "DS": "Data Science",
+      "CYS": "Cyber Security",
+      "MATH": "Mathematics",
+      "BBA": "Business Administration",
+      "ENG": "English",
+      "PHY": "Physics",
+    };
+
+    return departmentMap[cleanName] ?? shortName;
+  }
   Future<bool> exportToWord(
       Map<String, dynamic> data,
       String templateUrl,
       bool showCloTags,
       String examType,
-      int totalMarks,
+      double totalMarks,
       String courseTitle,
       String creditHours,
       String departmentName,
@@ -21,10 +39,10 @@ class ExportRepository {
       final apiUrl = Uri.parse(dotenv.env['DOCUMENT_API_KEY']!);
 
       final Map<String, dynamic> marksData = data['marks'] ?? {
-        "mcq_points": 1,
-        "short_points": 3,
-        "long_points": 10,
-        "fib_points": 1,
+        "mcq_points": 1.0,
+        "short_points": 3.0,
+        "long_points": 10.0,
+        "fib_points": 1.0,
       };
 
       final int mcqCount = (data['mcqs'] as List?)?.length ?? 0;
@@ -50,7 +68,7 @@ class ExportRepository {
           return (item['sub_parts'] as List).map((sp) => {
             "label": sp['label'] ?? "a",
             "question": sp['question'] ?? "",
-            "marks": sp['marks'] ?? 0,
+            "marks": sp['marks'] ?? 0.0,
           }).toList();
         }
         return [];
@@ -61,7 +79,7 @@ class ExportRepository {
         "show_clo_tags": showCloTags,
         "exam_data": {
           "title": data['title'] ?? "Assessment",
-          "department": departmentName,
+          "department": _getFullDepartmentName(departmentName),
           "exam_type": examType,
           "total_marks": totalMarks,
           "course_title": courseTitle,
@@ -69,25 +87,45 @@ class ExportRepository {
           "paper_type": paperType,
           "marks": marksData,
           "custom_scenarios": (data['custom_scenarios'] as List?)?.map((sc) => {
-            "text": sc['text'] ?? "",
-            "marks": sc['marks'] ?? 0,
+            "text": sc['question'] ?? sc['text'] ?? "",
+            "marks": sc['marks'] ?? 0.0,
             "type": sc['type'] ?? "Scenario",
+            "target_clo": sc['target_clo'],
             "sub_parts": mapSubParts(sc),
           }).toList() ?? [],
-          "mcqs": data['mcqs'] ?? [],
+
+          // BUG FIX: Explicitly passing 'marks' for all standard question types
+          "mcqs": (data['mcqs'] as List?)?.map((m) => {
+            "question": m['question'] ?? "",
+            "options": m['options'] ?? [],
+            "correctAnswer": m['correctAnswer'] ?? "",
+            "target_clo": m['target_clo'],
+            "marks": m['marks'] ?? marksData['mcq_points'] ?? 1.0,
+          }).toList() ?? [],
+
           "shortQuestions": (data['shortQuestions'] as List?)?.map((sq) => {
             "question": sq['question'] ?? "",
             "idealAnswer": sq['idealAnswer'] ?? "",
             "target_clo": sq['target_clo'],
             "sub_parts": mapSubParts(sq),
+            "marks": sq['marks'] ?? marksData['short_points'] ?? 3.0,
           }).toList() ?? [],
+
           "longQuestions": (data['longQuestions'] as List?)?.map((lq) => {
             "question": lq['question'] ?? "",
             "gradingRubric": lq['gradingRubric'] ?? "",
             "target_clo": lq['target_clo'],
             "sub_parts": mapSubParts(lq),
+            "marks": lq['marks'] ?? marksData['long_points'] ?? 5.0,
           }).toList() ?? [],
-          "fillInTheBlanks": data['fillInTheBlanks'] ?? [],
+
+          "fillInTheBlanks": (data['fillInTheBlanks'] as List?)?.map((fib) => {
+            "question": fib['question'] ?? "",
+            "answer": fib['answer'] ?? "",
+            "target_clo": fib['target_clo'],
+            "marks": fib['marks'] ?? marksData['fib_points'] ?? 1.0,
+          }).toList() ?? [],
+
           "diagram_questions": data['diagram_questions'] ?? [],
         },
       };
@@ -100,7 +138,6 @@ class ExportRepository {
 
       if (response.statusCode == 200) {
         final bytes = response.bodyBytes;
-
         final title = data['title'] ?? "Assessment";
         final output = await getTemporaryDirectory();
         final String filePath = "${output.path}/${title.replaceAll(' ', '_')}.docx";
