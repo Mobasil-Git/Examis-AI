@@ -1,19 +1,19 @@
+import 'package:examisai/view_models/course_catalog_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/assessment_view_model.dart';
 
-class ReviewSyllabusView extends StatefulWidget {
+class ReviewSyllabusView extends ConsumerStatefulWidget {
   final Map<String, dynamic> aiExtractedData;
 
   const ReviewSyllabusView({super.key, required this.aiExtractedData});
 
   @override
-  State<ReviewSyllabusView> createState() => _ReviewSyllabusViewState();
+  ConsumerState<ReviewSyllabusView> createState() => _ReviewSyllabusViewState();
 }
 
-class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
+class _ReviewSyllabusViewState extends ConsumerState<ReviewSyllabusView> {
   late TextEditingController _codeController;
   late TextEditingController _titleController;
   late TextEditingController _creditHoursController;
@@ -25,11 +25,19 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
   @override
   void initState() {
     super.initState();
-    _codeController = TextEditingController(text: widget.aiExtractedData['course_code'] ?? "");
-    _titleController = TextEditingController(text: widget.aiExtractedData['course_title'] ?? "");
-    _creditHoursController = TextEditingController(text: widget.aiExtractedData['credit_hours'] ?? "3(3-0)");
+    _codeController = TextEditingController(
+      text: widget.aiExtractedData['course_code'] ?? "",
+    );
+    _titleController = TextEditingController(
+      text: widget.aiExtractedData['course_title'] ?? "",
+    );
+    _creditHoursController = TextEditingController(
+      text: widget.aiExtractedData['credit_hours'] ?? "3(3-0)",
+    );
 
-    _clos = List<Map<String, dynamic>>.from(widget.aiExtractedData['clos'] ?? []);
+    _clos = List<Map<String, dynamic>>.from(
+      widget.aiExtractedData['clos'] ?? [],
+    );
   }
 
   @override
@@ -41,16 +49,31 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
   }
 
   Future<void> _publishToCatalog() async {
-    final vm = context.read<AssessmentViewModel>();
+    final catalogState = ref.read(courseCatalogProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (vm.selectedBatch == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("Please select a Session Batch on the catalog page first!"), backgroundColor: colorScheme.error));
+    if (catalogState.selectedBatch == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "Please select a Session Batch on the catalog page first!",
+          ),
+          backgroundColor: colorScheme.error,
+        ),
+      );
       return;
     }
 
     if (_selectedDepartmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("Please assign this course to a Department (or Shared Pool).", style: TextStyle(color: Colors.white)), backgroundColor: colorScheme.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "Please assign this course to a Department (or Shared Pool).",
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: colorScheme.error,
+        ),
+      );
       return;
     }
 
@@ -61,23 +84,31 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      final courseResponse = await supabase.from('master_courses').insert({
-        'batch_id': vm.selectedBatch!['id'],
-        'department_id': _selectedDepartmentId,
-        'course_code': _codeController.text.trim().toUpperCase(),
-        'title': _titleController.text.trim(),
-        'credit_hours': _creditHoursController.text.trim(),
-      }).select('id').single();
+      final courseResponse = await supabase
+          .from('master_courses')
+          .insert({
+            'batch_id': catalogState.selectedBatch!['id'],
+            'department_id': _selectedDepartmentId,
+            'course_code': _codeController.text.trim().toUpperCase(),
+            'title': _titleController.text.trim(),
+            'credit_hours': _creditHoursController.text.trim(),
+          })
+          .select('id')
+          .single();
 
       final newCourseId = courseResponse['id'];
 
-      final List<Map<String, dynamic>> closToInsert = _clos.map((clo) => {
-        'course_id': newCourseId,
-        'description': clo['description'],
-        'domain': clo['domain'],
-        'bt_level': clo['bt_level'],
-        'plo_id': clo['plo_id'],
-      }).toList();
+      final List<Map<String, dynamic>> closToInsert = _clos
+          .map(
+            (clo) => {
+              'course_id': newCourseId,
+              'description': clo['description'],
+              'domain': clo['domain'],
+              'bt_level': clo['bt_level'],
+              'plo_id': clo['plo_id'],
+            },
+          )
+          .toList();
 
       await supabase.from('master_clos').insert(closToInsert);
       await supabase.from('user_courses').insert({
@@ -91,9 +122,25 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
     } catch (e) {
       if (mounted) {
         if (e.toString().contains('unique_course_per_batch_dept')) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("This course already exists in this Department for this Session.", style: TextStyle(color: Colors.white)), backgroundColor: colorScheme.error));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                "This course already exists in this Department for this Session.",
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: colorScheme.error,
+            ),
+          );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error publishing: $e", style: const TextStyle(color: Colors.white)), backgroundColor: colorScheme.error));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Error publishing: $e",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: colorScheme.error,
+            ),
+          );
         }
         setState(() => _isPublishing = false);
       }
@@ -104,6 +151,7 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final catalogState = ref.watch(courseCatalogProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -132,23 +180,61 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Review AI Extraction", style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontWeight: FontWeight.bold, fontSize: 20)),
+                            Text(
+                              "Review AI Extraction",
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontFamily: 'Lato',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            Text("Verify the details and assign a department before publishing.", style: TextStyle(color: colorScheme.onSurfaceVariant, fontFamily: 'Lato')),
+                            Text(
+                              "Verify the details and assign a department before publishing.",
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontFamily: 'Lato',
+                              ),
+                            ),
                             const SizedBox(height: 24),
                             Row(
                               children: [
-                                Expanded(child: UniversalTextField(controller: _codeController, labelText: "Code")),
+                                Expanded(
+                                  child: UniversalTextField(
+                                    controller: _codeController,
+                                    labelText: "Code",
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
-                                Expanded(child: UniversalTextField(controller: _creditHoursController, labelText: "Credit Hrs")),
+                                Expanded(
+                                  child: UniversalTextField(
+                                    controller: _creditHoursController,
+                                    labelText: "Credit Hrs",
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
-                            UniversalTextField(controller: _titleController, labelText: "Title"),
+                            UniversalTextField(
+                              controller: _titleController,
+                              labelText: "Title",
+                            ),
                             const SizedBox(height: 16),
-                            _buildDepartmentDropdown(context, colorScheme),
+                            _buildDepartmentDropdown(
+                              context,
+                              catalogState,
+                              colorScheme,
+                            ),
                             const SizedBox(height: 24),
-                            Text("Extracted Objectives (CLOs)", style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontWeight: FontWeight.bold)),
+                            Text(
+                              "Extracted Objectives (CLOs)",
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontFamily: 'Lato',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                           ],
                         );
@@ -161,22 +247,40 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
                         margin: const EdgeInsets.only(bottom: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+                          side: BorderSide(
+                            color: colorScheme.outline.withAlpha(50),
+                          ),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(clo['description'] ?? "", style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontWeight: FontWeight.w600)),
+                              Text(
+                                clo['description'] ?? "",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontFamily: 'Lato',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  _buildTag("Domain: ${clo['domain']}", colorScheme),
+                                  _buildTag(
+                                    "Domain: ${clo['domain']}",
+                                    colorScheme,
+                                  ),
                                   const SizedBox(width: 8),
-                                  _buildTag("BT: ${clo['bt_level']}", colorScheme),
+                                  _buildTag(
+                                    "BT: ${clo['bt_level']}",
+                                    colorScheme,
+                                  ),
                                   const SizedBox(width: 8),
-                                  _buildTag("PLO: ${clo['plo_id']}", colorScheme),
+                                  _buildTag(
+                                    "PLO: ${clo['plo_id']}",
+                                    colorScheme,
+                                  ),
                                 ],
                               ),
                             ],
@@ -195,11 +299,20 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
                     style: ElevatedButton.styleFrom(
                       elevation: 0,
                       backgroundColor: colorScheme.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     child: _isPublishing
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text("Publish to Global Catalog", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        : const Text(
+                            "Publish to Global Catalog",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -210,11 +323,23 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
     );
   }
 
-  Widget _buildDepartmentDropdown(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildDepartmentDropdown(
+    BuildContext context,
+    CourseCatalogState catalogState,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Assign to Department", style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          "Assign to Department",
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontFamily: 'Lato',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -228,8 +353,11 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
               value: _selectedDepartmentId,
               isExpanded: true,
               dropdownColor: colorScheme.surface,
-              hint: Text("Select Department (or Shared Pool)", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-              items: context.watch<AssessmentViewModel>().departments.map((dept) {
+              hint: Text(
+                "Select Department (or Shared Pool)",
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+              items: catalogState.departments.map((dept) {
                 final isGeneral = dept['name'].toString().contains('General');
                 return DropdownMenuItem<String>(
                   value: dept['id'] as String,
@@ -237,8 +365,12 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
                     dept['name'],
                     style: TextStyle(
                       fontFamily: 'Lato',
-                      fontWeight: isGeneral ? FontWeight.bold : FontWeight.normal,
-                      color: isGeneral ? colorScheme.primary : colorScheme.onSurface,
+                      fontWeight: isGeneral
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isGeneral
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
                     ),
                   ),
                 );
@@ -260,7 +392,11 @@ class _ReviewSyllabusViewState extends State<ReviewSyllabusView> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: colorScheme.primary, fontSize: 11, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: colorScheme.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

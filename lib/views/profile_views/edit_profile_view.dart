@@ -1,23 +1,23 @@
 import 'package:examisai/utils/theme/app_colors.dart';
 import 'package:examisai/utils/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/universal_text_field.dart';
 import '../../resources/components/profile_picture_widget.dart';
-import '../../view_models/auth_view_model.dart';
-import '../../view_models/theme_view_model.dart';
+import '../../view_models/auth_provider.dart';
+import '../../view_models/theme_provider.dart';
 import '../../utils/responsive_ui.dart';
 import '../../utils/routes/route_names.dart';
 
-class EditProfileView extends StatefulWidget {
+class EditProfileView extends ConsumerStatefulWidget {
   const EditProfileView({super.key});
 
   @override
-  State<EditProfileView> createState() => _EditProfileViewState();
+  ConsumerState<EditProfileView> createState() => _EditProfileViewState();
 }
 
-class _EditProfileViewState extends State<EditProfileView> {
+class _EditProfileViewState extends ConsumerState<EditProfileView> {
   late TextEditingController nameController;
   final TextEditingController passwordController = TextEditingController();
   bool isPasswordHidden = true;
@@ -39,65 +39,62 @@ class _EditProfileViewState extends State<EditProfileView> {
   void _showDeleteConfirmation(BuildContext context, ColorScheme colorScheme) {
     showDialog(
       context: context,
-      builder: (ctx) =>
-          AlertDialog(
-            title: const Text(
-              "Delete Account?",
-              style: TextStyle(fontFamily: 'Lato', fontWeight: FontWeight.bold),
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          "Delete Account?",
+          style: TextStyle(fontFamily: 'Lato', fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "This action cannot be undone. All your data will be permanently lost.",
+          style: TextStyle(fontFamily: 'Lato'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              "Cancel",
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
-            content: const Text(
-              "This action cannot be undone. All your data will be permanently lost.",
-              style: TextStyle(fontFamily: 'Lato'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  "Cancel",
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  final success = await context
-                      .read<AuthViewModel>()
-                      .deleteAccount(
-                    context,
-                  );
-
-                  if (success && context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      RouteNames.login,
-                          (route) => false,
-                    );
-                  }
-                },
-                child: Text(
-                  "Delete",
-                  style: TextStyle(
-                    color: colorScheme.error,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
           ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await ref
+                  .read(authProvider.notifier)
+                  .deleteAccount(context);
+
+              if (success && context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  RouteNames.login,
+                  (route) => false,
+                );
+              }
+            },
+            child: Text(
+              "Delete",
+              style: TextStyle(
+                color: colorScheme.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeVM = context.watch<ThemeViewModel>();
-    final authVM = context.watch<AuthViewModel>();
+    final themeState = ref.watch(themeProvider);
+    final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (!_hasInitializedName && authVM.userName.isNotEmpty) {
+    if (!_hasInitializedName && authState.userName.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          nameController.text = authVM.userName;
+          nameController.text = authState.userName;
           _hasInitializedName = true;
         }
       });
@@ -110,7 +107,7 @@ class _EditProfileViewState extends State<EditProfileView> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: themeVM.isDarkMode
+        backgroundColor: themeState.isDarkMode
             ? colorScheme.surface
             : colorScheme.primary,
         elevation: 0,
@@ -133,7 +130,7 @@ class _EditProfileViewState extends State<EditProfileView> {
             Center(
               child: ProfilePictureWidget(
                 userId: userId,
-                initialAvatarUrl: authVM.avatarUrl,
+                initialAvatarUrl: authState.avatarUrl,
                 radius: context.isMobile ? 50 : 60,
               ),
             ),
@@ -209,30 +206,36 @@ class _EditProfileViewState extends State<EditProfileView> {
                   return;
                 }
 
-                final success = await context
-                    .read<AuthViewModel>()
+                final success = await ref
+                    .read(authProvider.notifier)
                     .updateProfile(
-                  context,
-                  newName: newName,
-                  newPassword: newPassword,
-                );
+                      context,
+                      newName: newName,
+                      newPassword: newPassword,
+                    );
 
                 if (success && context.mounted) {
                   if (newPassword.isNotEmpty) {
                     passwordController.clear();
-                    await context.read<AuthViewModel>().signOut(context);
+                    await ref.read(authProvider.notifier).signOut();
 
                     if (!context.mounted) return;
-                    Utils.showSnackBar(context, 'Password Successfully Changed, Please login again',
-                        AppColors.success);
+                    Utils.showSnackBar(
+                      context,
+                      'Password Successfully Changed, Please login again',
+                      AppColors.success,
+                    );
                     Navigator.pushNamedAndRemoveUntil(
                       context,
                       RouteNames.login,
-                          (route) => false,
+                      (route) => false,
                     );
                   } else {
-                    Utils.showSnackBar(context, 'Profile Updated Successfully',
-                        AppColors.success);
+                    Utils.showSnackBar(
+                      context,
+                      'Profile Updated Successfully',
+                      AppColors.success,
+                    );
                   }
                 }
               },
@@ -244,28 +247,28 @@ class _EditProfileViewState extends State<EditProfileView> {
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: Center(
-                  child: authVM.isLoading
+                  child: authState.isLoading
                       ? SizedBox(
-                    height: context.widthPercent(0.06),
-                    width: context.widthPercent(0.06),
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  )
+                          height: context.widthPercent(0.06),
+                          width: context.widthPercent(0.06),
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
                       : Text(
-                    "Save Changes",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Lato',
-                      fontWeight: FontWeight.bold,
-                      fontSize: context.isMobile ? 16 : 18,
-                    ),
-                  ),
+                          "Save Changes",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Lato',
+                            fontWeight: FontWeight.bold,
+                            fontSize: context.isMobile ? 16 : 18,
+                          ),
+                        ),
                 ),
               ),
             ),
-            SizedBox(height: context.heightPercent(0.05),),
+            SizedBox(height: context.heightPercent(0.05)),
             Text(
               "Danger Zone",
               style: TextStyle(

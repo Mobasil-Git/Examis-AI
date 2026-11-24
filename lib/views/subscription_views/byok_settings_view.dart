@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/auth_view_model.dart';
+import '../../view_models/auth_provider.dart';
 import '../../utils/responsive_ui.dart';
 import '../../utils/routes/route_names.dart';
 
-class BYOKSettingsView extends StatefulWidget {
+class BYOKSettingsView extends ConsumerStatefulWidget {
   const BYOKSettingsView({super.key});
 
   @override
-  State<BYOKSettingsView> createState() => _BYOKSettingsViewState();
+  ConsumerState<BYOKSettingsView> createState() => _BYOKSettingsViewState();
 }
 
-class _BYOKSettingsViewState extends State<BYOKSettingsView> {
+class _BYOKSettingsViewState extends ConsumerState<BYOKSettingsView> {
   final TextEditingController _keyController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _keyController.text = context.read<AuthViewModel>().customApiKey ?? '';
+    _keyController.text = ref.read(authProvider).customApiKey ?? '';
   }
 
   @override
@@ -126,9 +126,9 @@ class _BYOKSettingsViewState extends State<BYOKSettingsView> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (_keyController.text.trim().isEmpty) return;
-                      await context.read<AuthViewModel>().updateCustomApiKey(
-                        _keyController.text.trim(),
-                      );
+                      await ref
+                          .read(authProvider.notifier)
+                          .updateCustomApiKey(_keyController.text.trim());
                       if (context.mounted) {
                         Navigator.pushReplacementNamed(
                           context,

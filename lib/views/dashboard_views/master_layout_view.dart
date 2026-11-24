@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../view_models/auth_view_model.dart';
-import '../../view_models/history_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../view_models/auth_provider.dart';
+import '../../view_models/history_provider.dart';
 import '../../utils/responsive_ui.dart';
 import '../../resources/components/feature_lock_overlay.dart';
 import '../assessment_views/generation_wizard_view.dart';
@@ -10,14 +10,14 @@ import 'history_view.dart';
 import 'template_view.dart';
 import 'settings_view.dart';
 
-class MasterLayoutView extends StatefulWidget {
+class MasterLayoutView extends ConsumerStatefulWidget {
   const MasterLayoutView({super.key});
 
   @override
-  State<MasterLayoutView> createState() => _MasterLayoutViewState();
+  ConsumerState<MasterLayoutView> createState() => _MasterLayoutViewState();
 }
 
-class _MasterLayoutViewState extends State<MasterLayoutView> {
+class _MasterLayoutViewState extends ConsumerState<MasterLayoutView> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
@@ -31,8 +31,8 @@ class _MasterLayoutViewState extends State<MasterLayoutView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthViewModel>().fetchUserProfile();
-      context.read<HistoryViewModel>().loadHistory();
+      ref.read(authProvider.notifier).fetchUserProfile();
+      ref.read(historyProvider.notifier).loadHistory();
     });
   }
 
@@ -46,7 +46,7 @@ class _MasterLayoutViewState extends State<MasterLayoutView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final authVM = context.watch<AuthViewModel>();
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -54,7 +54,7 @@ class _MasterLayoutViewState extends State<MasterLayoutView> {
       body: Stack(
         children: [
           IndexedStack(index: _currentIndex, children: _pages),
-          if (!authVM.isAppUnlocked && _currentIndex != 3)
+          if (!authState.isAppUnlocked && _currentIndex != 3)
             const FeatureLockOverlay(),
         ],
       ),
@@ -128,7 +128,7 @@ class _MasterLayoutViewState extends State<MasterLayoutView> {
             color: isSelected
                 ? colorScheme.primary.withAlpha(30)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(20), // The pill shape
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
             icon,

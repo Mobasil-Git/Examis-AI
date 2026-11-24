@@ -1,23 +1,23 @@
+import 'package:examisai/view_models/course_catalog_provider.dart';
+import 'package:examisai/view_models/theme_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/assessment_view_model.dart';
-import '../../view_models/theme_view_model.dart';
 import '../../utils/responsive_ui.dart';
-import '../../utils/utils.dart'; // Added global Utils
+import '../../utils/utils.dart';
 import 'manual_course_entry_view.dart';
 import 'review_syllabus_view.dart';
 
-class CourseCatalogView extends StatefulWidget {
+class CourseCatalogView extends ConsumerStatefulWidget {
   const CourseCatalogView({super.key});
 
   @override
-  State<CourseCatalogView> createState() => _CourseCatalogViewState();
+  ConsumerState<CourseCatalogView> createState() => _CourseCatalogViewState();
 }
 
-class _CourseCatalogViewState extends State<CourseCatalogView> {
+class _CourseCatalogViewState extends ConsumerState<CourseCatalogView> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   List<Map<String, dynamic>> _searchResults = [];
@@ -27,9 +27,8 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final vm = context.read<AssessmentViewModel>();
-      vm.fetchBatches();
-      vm.fetchDepartments();
+      ref.read(courseCatalogProvider.notifier).fetchBatches();
+      ref.read(courseCatalogProvider.notifier).fetchDepartments();
     });
   }
 
@@ -49,15 +48,15 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
       if (_searchController.text != query) return;
 
       try {
-        final vm = context.read<AssessmentViewModel>();
-        final String? activeBatchId = vm.selectedBatch?['id'];
+        final catalogState = ref.read(courseCatalogProvider);
+        final String? activeBatchId = catalogState.selectedBatch?['id'];
 
         if (activeBatchId == null || _selectedDepartmentId == null) {
           setState(() => _isSearching = false);
           return;
         }
 
-        final generalDeptId = vm.generalDepartment?['id'];
+        final generalDeptId = catalogState.generalDepartment?['id'];
         var supabaseQuery = Supabase.instance.client
             .from('master_courses')
             .select('id, course_code, title, credit_hours, departments(name)')
@@ -95,7 +94,6 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
     List<Map<String, dynamic>> allClos,
     ColorScheme colorScheme,
   ) async {
-    // Keep track of which CLOs are selected
     List<bool> selectedStatus = List.generate(allClos.length, (index) => true);
 
     return showDialog<List<Map<String, dynamic>>>(
@@ -174,17 +172,15 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
               ),
               actionsAlignment: MainAxisAlignment.center,
               actions: [
-
-                SizedBox( width: context.widthPercent(0.3),
+                SizedBox(
+                  width: context.widthPercent(0.3),
                   child: ElevatedButton(
                     style: OutlinedButton.styleFrom(
                       elevation: 0,
                       backgroundColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: Colors.grey
-                        )
+                        side: const BorderSide(color: Colors.grey),
                       ),
                     ),
                     onPressed: () => Navigator.pop(context, null),
@@ -205,12 +201,9 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                       ),
                     ),
                     onPressed: () {
-                      // Filter the CLOs based on the checked status
                       List<Map<String, dynamic>> selectedClos = [];
                       for (int i = 0; i < allClos.length; i++) {
-                        if (selectedStatus[i]) {
-                          selectedClos.add(allClos[i]);
-                        }
+                        if (selectedStatus[i]) selectedClos.add(allClos[i]);
                       }
                       Navigator.pop(context, selectedClos);
                     },
@@ -235,8 +228,8 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final assessmentVM = context.watch<AssessmentViewModel>();
-    final themeVM = context.watch<ThemeViewModel>();
+    final catalogState = ref.watch(courseCatalogProvider);
+    final themeState = ref.watch(themeProvider);
 
     final hasSearched = _searchController.text.isNotEmpty;
     final noResults = hasSearched && !_isSearching && _searchResults.isEmpty;
@@ -244,7 +237,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: themeVM.isDarkMode
+        backgroundColor: themeState.isDarkMode
             ? colorScheme.surface
             : colorScheme.primary,
         elevation: 0,
@@ -272,7 +265,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFilters(context, assessmentVM, colorScheme, themeVM),
+                _buildFilters(context, catalogState, colorScheme),
                 SizedBox(height: context.heightPercent(0.025)),
                 Text(
                   "Search University Catalog",
@@ -345,9 +338,8 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
 
   Widget _buildFilters(
     BuildContext context,
-    AssessmentViewModel vm,
+    CourseCatalogState catalogState,
     ColorScheme colorScheme,
-    ThemeViewModel themeVM,
   ) {
     return Column(
       children: [
@@ -356,17 +348,19 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
             Expanded(
               child: _buildFlatDropdown(
                 context: context,
-                value: vm.selectedBatch?['id'],
+                value: catalogState.selectedBatch?['id'],
                 hint: "Select Session Batch",
-                items: vm.availableBatches,
+                items: catalogState.availableBatches,
                 displayKey: 'batch_name',
                 colorScheme: colorScheme,
                 onChanged: (newId) {
                   if (newId != null) {
-                    final newBatch = vm.availableBatches.firstWhere(
+                    final newBatch = catalogState.availableBatches.firstWhere(
                       (b) => b['id'] == newId,
                     );
-                    vm.updateSelectedBatch(newBatch);
+                    ref
+                        .read(courseCatalogProvider.notifier)
+                        .updateSelectedBatch(newBatch);
                     _performSearch(_searchController.text);
                   }
                 },
@@ -381,7 +375,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
               child: IconButton(
                 icon: Icon(Icons.add_chart_rounded, color: colorScheme.primary),
                 tooltip: "Create New Session",
-                onPressed: () => _showAddBatchDialog(context, vm, colorScheme),
+                onPressed: () => _showAddBatchDialog(context, colorScheme),
               ),
             ),
           ],
@@ -391,7 +385,7 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
           context: context,
           value: _selectedDepartmentId,
           hint: "Filter by Department",
-          items: vm.departments,
+          items: catalogState.departments,
           displayKey: 'name',
           colorScheme: colorScheme,
           onChanged: (newId) {
@@ -589,7 +583,6 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                       if (userId == null) return;
 
                       try {
-                        // 1. Fetch all CLOs for the course first
                         final cloResponse = await Supabase.instance.client
                             .from('master_clos')
                             .select('description, domain, bt_level, plo_id')
@@ -598,21 +591,16 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                         final allClos = List<Map<String, dynamic>>.from(
                           cloResponse,
                         );
-
                         if (!context.mounted) return;
 
-                        // 2. Show the selection dialog
                         final selectedClos = await _showCloSelectionDialog(
                           context,
                           allClos,
                           colorScheme,
                         );
-
-                        // If they cancelled the dialog or selected 0 CLOs, abort import
                         if (selectedClos == null || selectedClos.isEmpty)
                           return;
 
-                        // 3. Register the course to the user's library (ignore if already exists)
                         try {
                           await Supabase.instance.client
                               .from('user_courses')
@@ -624,15 +612,17 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
 
                         if (!context.mounted) return;
 
-                        context.read<AssessmentViewModel>().setImportedCourse(
-                          course['course_code'],
-                          course['title'],
-                          selectedClos,
-                          course['credit_hours'] ?? "3(3-0)",
-                          deptName,
-                        );
+                        ref
+                            .read(courseCatalogProvider.notifier)
+                            .setImportedCourse(
+                              course['course_code'],
+                              course['title'],
+                              selectedClos,
+                              course['credit_hours'] ?? "3(3-0)",
+                              deptName,
+                            );
 
-                        Navigator.pop(context); // Close the catalog view
+                        Navigator.pop(context);
                         Utils.showSnackBar(
                           context,
                           "Course loaded successfully!",
@@ -751,11 +741,9 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
                     );
 
                     try {
-                      final vm = context.read<AssessmentViewModel>();
-                      final parsedJson = await vm.extractCourseWithGemini(
-                        image,
-                      );
-
+                      final parsedJson = await ref
+                          .read(courseCatalogProvider.notifier)
+                          .extractCourseWithGemini(image);
                       if (!context.mounted) return;
                       Navigator.pop(context);
 
@@ -838,126 +826,126 @@ class _CourseCatalogViewState extends State<CourseCatalogView> {
       ),
     );
   }
-}
 
-void _showAddBatchDialog(
-  BuildContext context,
-  AssessmentViewModel vm,
-  ColorScheme colorScheme,
-) {
-  final startYearCtrl = TextEditingController();
-  final endYearCtrl = TextEditingController();
+  void _showAddBatchDialog(BuildContext context, ColorScheme colorScheme) {
+    final startYearCtrl = TextEditingController();
+    final endYearCtrl = TextEditingController();
 
-  showDialog(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        backgroundColor: colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          "Add New Academic Session",
-          style: TextStyle(
-            fontFamily: 'Lato',
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Enter the starting and ending years for the new batch.",
-              style: TextStyle(
-                fontFamily: 'Lato',
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
+          title: Text(
+            "Add New Academic Session",
+            style: TextStyle(
+              fontFamily: 'Lato',
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: UniversalTextField(
-                    controller: startYearCtrl,
-                    labelText: "Start Year",
-                    hintText: "e.g., 2027",
-                    keyboardType: TextInputType.number,
-                  ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Enter the starting and ending years for the new batch.",
+                style: TextStyle(
+                  fontFamily: 'Lato',
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: UniversalTextField(
-                    controller: endYearCtrl,
-                    labelText: "End Year",
-                    hintText: "e.g., 2031",
-                    keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: UniversalTextField(
+                      controller: startYearCtrl,
+                      labelText: "Start Year",
+                      hintText: "e.g., 2027",
+                      keyboardType: TextInputType.number,
+                    ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: UniversalTextField(
+                      controller: endYearCtrl,
+                      labelText: "End Year",
+                      hintText: "e.g., 2031",
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+              ),
+              onPressed: () async {
+                final startYear = int.tryParse(startYearCtrl.text);
+                final endYear = int.tryParse(endYearCtrl.text);
+
+                if (startYear == null ||
+                    endYear == null ||
+                    startYear >= endYear) {
+                  Utils.showSnackBar(
+                    context,
+                    "Please enter valid chronological years.",
+                    colorScheme.error,
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext);
+                Utils.showSnackBar(
+                  context,
+                  "Creating session...",
+                  Colors.blueAccent,
+                );
+
+                final success = await ref
+                    .read(courseCatalogProvider.notifier)
+                    .createNewBatch(startYear, endYear);
+
+                if (success && context.mounted) {
+                  Utils.showSnackBar(
+                    context,
+                    "Session created successfully!",
+                    Colors.green,
+                  );
+                } else if (context.mounted) {
+                  Utils.showSnackBar(
+                    context,
+                    "Failed to create session. It may already exist.",
+                    colorScheme.error,
+                  );
+                }
+              },
+              child: const Text(
+                "Create",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              final startYear = int.tryParse(startYearCtrl.text);
-              final endYear = int.tryParse(endYearCtrl.text);
-
-              if (startYear == null ||
-                  endYear == null ||
-                  startYear >= endYear) {
-                Utils.showSnackBar(
-                  context,
-                  "Please enter valid chronological years.",
-                  colorScheme.error,
-                );
-                return;
-              }
-
-              Navigator.pop(dialogContext);
-              Utils.showSnackBar(
-                context,
-                "Creating session...",
-                Colors.blueAccent,
-              );
-
-              final success = await vm.createNewBatch(startYear, endYear);
-
-              if (success && context.mounted) {
-                Utils.showSnackBar(
-                  context,
-                  "Session created successfully!",
-                  Colors.green,
-                );
-              } else if (context.mounted) {
-                Utils.showSnackBar(
-                  context,
-                  "Failed to create session. It may already exist.",
-                  colorScheme.error,
-                );
-              }
-            },
-            child: const Text(
-              "Create",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }

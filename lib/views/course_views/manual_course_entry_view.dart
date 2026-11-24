@@ -1,19 +1,19 @@
+import 'package:examisai/view_models/course_catalog_provider.dart';
+import 'package:examisai/view_models/theme_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/assessment_view_model.dart';
-import '../../view_models/theme_view_model.dart';
 import '../../utils/responsive_ui.dart';
 
-class ManualCourseEntryView extends StatefulWidget {
+class ManualCourseEntryView extends ConsumerStatefulWidget {
   const ManualCourseEntryView({super.key});
 
   @override
-  State<ManualCourseEntryView> createState() => _ManualCourseEntryViewState();
+  ConsumerState<ManualCourseEntryView> createState() => _ManualCourseEntryViewState();
 }
 
-class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
+class _ManualCourseEntryViewState extends ConsumerState<ManualCourseEntryView> {
   final _codeController = TextEditingController();
   final _titleController = TextEditingController();
   final _creditHoursController = TextEditingController();
@@ -39,14 +39,14 @@ class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
   }
 
   Future<void> _publishToCatalog() async {
-    final vm = context.read<AssessmentViewModel>();
+    final catalogState = ref.read(courseCatalogProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     if (_selectedDepartmentId == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("Please select a Department or Shared Pool."), backgroundColor: colorScheme.error));
       return;
     }
-    if (vm.selectedBatch == null) {
+    if (catalogState.selectedBatch == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("Please go back and select a Session Batch first!"), backgroundColor: colorScheme.error));
       return;
     }
@@ -64,7 +64,7 @@ class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
       if (userId == null) return;
 
       final courseResponse = await supabase.from('master_courses').insert({
-        'batch_id': vm.selectedBatch!['id'],
+        'batch_id': catalogState.selectedBatch!['id'],
         'department_id': _selectedDepartmentId,
         'course_code': _codeController.text.trim().toUpperCase(),
         'title': _titleController.text.trim(),
@@ -89,12 +89,12 @@ class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
 
       if (!context.mounted) return;
 
-      context.read<AssessmentViewModel>().setImportedCourse(
+      ref.read(courseCatalogProvider.notifier).setImportedCourse(
         _codeController.text.trim().toUpperCase(),
         _titleController.text.trim(),
         closToInsert,
         _creditHoursController.text.trim(),
-        vm.selectedDepartmentName ?? "BSCS",
+        catalogState.selectedDepartmentName ?? "General", // Using fallback
       );
 
       Navigator.pop(context);
@@ -119,24 +119,19 @@ class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final assessmentVM = context.watch<AssessmentViewModel>();
-    final themeVM = context.watch<ThemeViewModel>();
+    final catalogState = ref.watch(courseCatalogProvider);
+    final themeState = ref.watch(themeProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        // Dynamic AppBar coloring
-        backgroundColor: themeVM.isDarkMode ? colorScheme.surface : colorScheme.primary,
+        backgroundColor: themeState.isDarkMode ? colorScheme.surface : colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           "Manual Course Entry",
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'Lato',
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontFamily: 'Lato', fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -160,7 +155,7 @@ class _ManualCourseEntryViewState extends State<ManualCourseEntryView> {
                       isExpanded: true,
                       dropdownColor: colorScheme.surface,
                       hint: Text("Select Department (or Shared Pool)", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                      items: assessmentVM.departments.map((dept) {
+                      items: catalogState.departments.map((dept) {
                         return DropdownMenuItem<String>(
                           value: dept['id'] as String,
                           child: Text(

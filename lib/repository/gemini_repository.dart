@@ -20,7 +20,7 @@ class GeminiRepository {
       apiKey: activeKey,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
-        temperature: 0.1, // Keep very low to prevent hallucinations
+        temperature: 0.1,
       ),
     );
   }
@@ -56,7 +56,6 @@ class GeminiRepository {
         }
       ]
       ''';
-      // BUG FIX: Strictly forbid inventing subparts and enforce exact marks
       subPartInstruction = """
       CRITICAL SUB-PART AND MARKS ENFORCEMENT:
       1. DO NOT generate 'sub_parts' for ANY standard question unless explicitly requested.

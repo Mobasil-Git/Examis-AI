@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/universal_text_field.dart';
 import '../../resources/components/profile_picture_widget.dart';
-import '../../view_models/auth_view_model.dart';
-import '../../view_models/theme_view_model.dart';
+import '../../view_models/auth_provider.dart';
+import '../../view_models/theme_provider.dart';
 import '../../utils/responsive_ui.dart';
 import '../../utils/routes/route_names.dart';
 import '../profile_views/edit_profile_view.dart';
 import '../profile_views/about_us_view.dart';
 import '../profile_views/feedback_view.dart';
 
-class SettingsView extends StatefulWidget {
+class SettingsView extends ConsumerStatefulWidget {
   const SettingsView({super.key});
 
   @override
-  State<SettingsView> createState() => _SettingsViewState();
+  ConsumerState<SettingsView> createState() => _SettingsViewState();
 }
 
-class _SettingsViewState extends State<SettingsView> {
+class _SettingsViewState extends ConsumerState<SettingsView> {
   bool notificationsEnabled = true;
   String institutionName = "Not Set";
 
@@ -141,29 +141,27 @@ class _SettingsViewState extends State<SettingsView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final themeVM = context.watch<ThemeViewModel>();
-    final authVM = context.watch<AuthViewModel>();
+    final themeState = ref.watch(themeProvider);
+    final authState = ref.watch(authProvider);
 
     final userId = Supabase.instance.client.auth.currentUser?.id ?? "";
     final userEmail =
         Supabase.instance.client.auth.currentUser?.email ?? "No Email";
-    final usedMB = authVM.storageUsedBytes / (1024 * 1024);
+    final usedMB = authState.storageUsedBytes / (1024 * 1024);
 
     double percentUsed = 0.0;
-    if (authVM.storageLimitBytes > 0) {
-      percentUsed = (authVM.storageUsedBytes / authVM.storageLimitBytes).clamp(
-        0.0,
-        1.0,
-      );
+    if (authState.storageLimitBytes > 0) {
+      percentUsed = (authState.storageUsedBytes / authState.storageLimitBytes)
+          .clamp(0.0, 1.0);
     }
     String displayValue = usedMB.toStringAsFixed(1);
 
-    final bool hasCustomKey = (authVM.customApiKey?.isNotEmpty ?? false);
+    final bool hasCustomKey = (authState.customApiKey?.isNotEmpty ?? false);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: themeVM.isDarkMode
+        backgroundColor: themeState.isDarkMode
             ? colorScheme.surface
             : colorScheme.primary,
         elevation: 0,
@@ -195,7 +193,7 @@ class _SettingsViewState extends State<SettingsView> {
               children: [
                 ProfilePictureWidget(
                   userId: userId,
-                  initialAvatarUrl: authVM.avatarUrl,
+                  initialAvatarUrl: authState.avatarUrl,
                   radius: context.isMobile ? 32 : 40,
                   showEditBadge: false,
                 ),
@@ -205,9 +203,9 @@ class _SettingsViewState extends State<SettingsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        authVM.userName.isEmpty
+                        authState.userName.isEmpty
                             ? "Loading..."
-                            : authVM.userName,
+                            : authState.userName,
                         style: TextStyle(
                           color: colorScheme.onSurface,
                           fontFamily: 'Lato',
@@ -255,8 +253,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ? "Key Active - Tap to update"
                 : "Add key to unlock generation",
             iconColor: hasCustomKey ? Colors.green : colorScheme.error,
-            onTap: () =>
-                Navigator.pushNamed(context, RouteNames.byokSettings),
+            onTap: () => Navigator.pushNamed(context, RouteNames.byokSettings),
             colorScheme: colorScheme,
           ),
           Padding(
@@ -345,8 +342,9 @@ class _SettingsViewState extends State<SettingsView> {
             context,
             icon: Icons.dark_mode_outlined,
             title: "Dark Mode",
-            value: themeVM.isDarkMode,
-            onChanged: (value) => themeVM.toggleTheme(value),
+            value: themeState.isDarkMode,
+            onChanged: (value) =>
+                ref.read(themeProvider.notifier).toggleTheme(value),
             colorScheme: colorScheme,
           ),
           _buildSwitchTile(
@@ -409,12 +407,12 @@ class _SettingsViewState extends State<SettingsView> {
             titleColor: colorScheme.error,
             hideTrailing: true,
             onTap: () async {
-              await authVM.signOut(context);
+              await ref.read(authProvider.notifier).signOut();
               if (context.mounted) {
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   RouteNames.login,
-                      (route) => false,
+                  (route) => false,
                 );
               }
             },
@@ -428,10 +426,10 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildSectionHeader(
-      BuildContext context,
-      String title,
-      ColorScheme colorScheme,
-      ) {
+    BuildContext context,
+    String title,
+    ColorScheme colorScheme,
+  ) {
     return Padding(
       padding: EdgeInsets.only(
         bottom: context.heightPercent(0.015),
@@ -451,16 +449,16 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildListTile(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        String? subtitle,
-        required VoidCallback onTap,
-        Color? iconColor,
-        Color? titleColor,
-        bool hideTrailing = false,
-        required ColorScheme colorScheme,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? titleColor,
+    bool hideTrailing = false,
+    required ColorScheme colorScheme,
+  }) {
     return Padding(
       padding: EdgeInsets.only(bottom: context.heightPercent(0.015)),
       child: Material(
@@ -482,13 +480,13 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           subtitle: subtitle != null
               ? Text(
-            subtitle,
-            style: TextStyle(
-              fontFamily: 'Lato',
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
-          )
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: 'Lato',
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                )
               : null,
           trailing: hideTrailing
               ? null
@@ -500,13 +498,13 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildSwitchTile(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required bool value,
-        required ValueChanged<bool> onChanged,
-        required ColorScheme colorScheme,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required ColorScheme colorScheme,
+  }) {
     return Padding(
       padding: EdgeInsets.only(bottom: context.heightPercent(0.015)),
       child: Material(

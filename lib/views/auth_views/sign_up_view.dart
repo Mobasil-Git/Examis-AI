@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../resources/components/build_social_icon.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/auth_view_model.dart';
+import '../../view_models/auth_provider.dart';
 import '../../utils/responsive_ui.dart';
 import '../../utils/routes/route_names.dart';
 
-class SignupView extends StatefulWidget {
+class SignupView extends ConsumerStatefulWidget {
   const SignupView({super.key});
 
   @override
-  State<SignupView> createState() => _SignupViewState();
+  ConsumerState<SignupView> createState() => _SignupViewState();
 }
 
-class _SignupViewState extends State<SignupView> {
+class _SignupViewState extends ConsumerState<SignupView> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -37,7 +37,9 @@ class _SignupViewState extends State<SignupView> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.widthPercent(0.06),
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -79,7 +81,9 @@ class _SignupViewState extends State<SignupView> {
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.outline.withAlpha(50)),
+                    border: Border.all(
+                      color: colorScheme.outline.withAlpha(50),
+                    ),
                   ),
                   child: Column(
                     children: [
@@ -125,75 +129,104 @@ class _SignupViewState extends State<SignupView> {
                         ),
                       ),
                       SizedBox(height: context.heightPercent(0.033)),
-                      GestureDetector(
-                        onTap: () async {
-                          FocusScope.of(context).unfocus();
-
-                          if (nameController.text.isEmpty ||
-                              emailController.text.isEmpty ||
-                              passwordController.text.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Please fill in all fields."),
-                              ),
-                            );
-                            return;
-                          }
-
-                          final authVM = context.read<AuthViewModel>();
-                          final success = await authVM.signUp(
-                            context,
-                            fullName: nameController.text.trim(),
-                            email: emailController.text.trim(),
-                            password: passwordController.text.trim(),
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final isLoading = ref.watch(
+                            authProvider.select((s) => s.isLoading),
                           );
+                          return GestureDetector(
+                            onTap: isLoading
+                                ? null
+                                : () async {
+                                    FocusScope.of(context).unfocus();
 
-                          if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Account created! Please log in."),
-                                backgroundColor: Colors.green,
+                                    if (nameController.text.isEmpty ||
+                                        emailController.text.isEmpty ||
+                                        passwordController.text.isEmpty) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            "Please fill in all fields.",
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    final success = await ref
+                                        .read(authProvider.notifier)
+                                        .signUp(
+                                          context,
+                                          fullName: nameController.text.trim(),
+                                          email: emailController.text.trim(),
+                                          password: passwordController.text
+                                              .trim(),
+                                        );
+
+                                    if (success && context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            "Account created! Please log in.",
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      Navigator.pushReplacementNamed(
+                                        context,
+                                        RouteNames.login,
+                                      );
+                                    }
+                                  },
+                            child: Container(
+                              height: context.heightPercent(0.065),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: isLoading
+                                    ? colorScheme.primary.withAlpha(150)
+                                    : colorScheme.primary,
+                                borderRadius: BorderRadius.circular(25),
                               ),
-                            );
-                            // Implementing Custom Routing
-                            Navigator.pushReplacementNamed(context, RouteNames.login);
-                          }
-                        },
-                        child: Container(
-                          height: context.heightPercent(0.065),
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary,
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          child: Center(
-                            child: context.watch<AuthViewModel>().isLoading
-                                ? SizedBox(
-                              height: context.widthPercent(0.06),
-                              width: context.widthPercent(0.06),
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
-                              ),
-                            )
-                                : Text(
-                              "Sign Up",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontFamily: 'Lato',
-                                fontWeight: FontWeight.bold,
-                                fontSize: context.isMobile ? 16 : 18,
+                              child: Center(
+                                child: isLoading
+                                    ? SizedBox(
+                                        height: context.widthPercent(0.06),
+                                        width: context.widthPercent(0.06),
+                                        child: const CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 3,
+                                        ),
+                                      )
+                                    : Text(
+                                        "Sign Up",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontFamily: 'Lato',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: context.isMobile ? 16 : 18,
+                                        ),
+                                      ),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                       SizedBox(height: context.heightPercent(0.03)),
                       Row(
                         children: [
-                          Expanded(child: Divider(color: colorScheme.outline.withAlpha(50))),
+                          Expanded(
+                            child: Divider(
+                              color: colorScheme.outline.withAlpha(50),
+                            ),
+                          ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.04)),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.widthPercent(0.04),
+                            ),
                             child: Text(
                               "Or",
                               style: TextStyle(
@@ -203,7 +236,11 @@ class _SignupViewState extends State<SignupView> {
                               ),
                             ),
                           ),
-                          Expanded(child: Divider(color: colorScheme.outline.withAlpha(50))),
+                          Expanded(
+                            child: Divider(
+                              color: colorScheme.outline.withAlpha(50),
+                            ),
+                          ),
                         ],
                       ),
                       SizedBox(height: context.heightPercent(0.025)),
@@ -211,7 +248,9 @@ class _SignupViewState extends State<SignupView> {
                         image: 'assets/social_icons/google.png',
                         text: "Continue with Google",
                         onTap: () async {
-                          await context.read<AuthViewModel>().signInWithGoogle(context);
+                          await ref
+                              .read(authProvider.notifier)
+                              .signInWithGoogle(context);
                         },
                       ),
                     ],
@@ -230,8 +269,10 @@ class _SignupViewState extends State<SignupView> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        // Implementing Custom Routing
-                        Navigator.pushReplacementNamed(context, RouteNames.login);
+                        Navigator.pushReplacementNamed(
+                          context,
+                          RouteNames.login,
+                        );
                       },
                       child: Text(
                         "Log In",

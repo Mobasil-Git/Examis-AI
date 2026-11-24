@@ -3,23 +3,23 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
-import 'package:provider/provider.dart';
-import '../../view_models/assessment_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../view_models/assessment_provider.dart';
 import '../../utils/responsive_ui.dart';
 
-class UploadSection extends StatelessWidget {
+class UploadSection extends ConsumerWidget {
   const UploadSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final notifier = ref.read(assessmentProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final files = vm.selectedFiles;
+    final files = state.selectedFiles;
     final hasFiles = files.isNotEmpty;
 
-    // Calculate total size of all currently selected files
     int totalBytes = 0;
     for (var f in files) {
       if (f.path != null) {
@@ -28,8 +28,11 @@ class UploadSection extends StatelessWidget {
     }
 
     final double totalMB = totalBytes / (1024 * 1024);
-    final double limitMB = (vm.maxFiles * vm.maxFileSizeInBytes) / (1024 * 1024); // e.g., 30 MB
-    final double usagePercent = limitMB > 0 ? (totalMB / limitMB).clamp(0.0, 1.0) : 0.0;
+    final double limitMB =
+        (state.maxFiles * state.maxFileSizeInBytes) / (1024 * 1024);
+    final double usagePercent = limitMB > 0
+        ? (totalMB / limitMB).clamp(0.0, 1.0)
+        : 0.0;
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06)),
@@ -38,7 +41,6 @@ class UploadSection extends StatelessWidget {
         children: [
           SizedBox(height: context.heightPercent(0.01)),
 
-          // --- HEADER ---
           Text(
             "Step 2: Upload Material",
             style: TextStyle(
@@ -60,11 +62,10 @@ class UploadSection extends StatelessWidget {
           ),
           SizedBox(height: context.heightPercent(0.04)),
 
-          // --- MB CALCULATION PROGRESS BAR ---
           Container(
             padding: EdgeInsets.all(context.widthPercent(0.04)),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceVariant,
+              color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -75,11 +76,21 @@ class UploadSection extends StatelessWidget {
                   children: [
                     Text(
                       "Upload Capacity",
-                      style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontFamily: 'Lato',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                     Text(
                       "${totalMB.toStringAsFixed(1)} MB / ${limitMB.toStringAsFixed(0)} MB",
-                      style: TextStyle(color: colorScheme.primary, fontFamily: 'Lato', fontWeight: FontWeight.w900, fontSize: 14),
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontFamily: 'Lato',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -89,24 +100,29 @@ class UploadSection extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: usagePercent,
                     backgroundColor: colorScheme.outlineVariant.withAlpha(80),
-                    color: usagePercent > 0.9 ? colorScheme.error : colorScheme.primary,
+                    color: usagePercent > 0.9
+                        ? colorScheme.error
+                        : colorScheme.primary,
                     minHeight: 8,
                   ),
                 ),
                 SizedBox(height: context.heightPercent(0.01)),
                 Text(
-                  "Max ${vm.maxFiles} files allowed",
-                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontFamily: 'Lato', fontSize: 12),
+                  "Max ${state.maxFiles} files allowed",
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontFamily: 'Lato',
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
           SizedBox(height: context.heightPercent(0.03)),
 
-          // --- DROPZONE AREA ---
-          if (vm.canAddMoreFiles)
+          if (state.canAddMoreFiles)
             GestureDetector(
-              onTap: () => vm.pickFile(context),
+              onTap: () => notifier.pickFile(context),
               behavior: HitTestBehavior.opaque,
               child: DottedBorder(
                 options: RoundedRectDottedBorderOptions(
@@ -117,7 +133,9 @@ class UploadSection extends StatelessWidget {
                 ),
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: context.heightPercent(0.04)),
+                  padding: EdgeInsets.symmetric(
+                    vertical: context.heightPercent(0.04),
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
@@ -127,12 +145,24 @@ class UploadSection extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildAngledIcon("assets/images/docx-file.png", -12, context),
+                          _buildAngledIcon(
+                            "assets/images/docx-file.png",
+                            -12,
+                            context,
+                          ),
                           Transform.translate(
                             offset: const Offset(0, -10),
-                            child: _buildAngledIcon("assets/images/pdf.png", -3, context),
+                            child: _buildAngledIcon(
+                              "assets/images/pdf.png",
+                              -3,
+                              context,
+                            ),
                           ),
-                          _buildAngledIcon("assets/images/pptx.png", 15, context),
+                          _buildAngledIcon(
+                            "assets/images/pptx.png",
+                            15,
+                            context,
+                          ),
                         ],
                       ),
                       SizedBox(height: context.heightPercent(0.02)),
@@ -153,7 +183,6 @@ class UploadSection extends StatelessWidget {
 
           SizedBox(height: context.heightPercent(0.03)),
 
-          // --- UPLOADED FILES LIST ---
           if (hasFiles) ...[
             Text(
               "Selected Files",
@@ -165,16 +194,22 @@ class UploadSection extends StatelessWidget {
               ),
             ),
             SizedBox(height: context.heightPercent(0.015)),
-            ...files.map((file) => _buildFileTile(file, vm, context, colorScheme)),
+            ...files.map(
+              (file) => _buildFileTile(file, notifier, context, colorScheme),
+            ),
           ],
 
-          SizedBox(height: context.heightPercent(0.04)), // Padding for scrolling
+          SizedBox(height: context.heightPercent(0.04)),
         ],
       ),
     );
   }
 
-  Widget _buildAngledIcon(String assetPath, double angleDegrees, BuildContext context) {
+  Widget _buildAngledIcon(
+    String assetPath,
+    double angleDegrees,
+    BuildContext context,
+  ) {
     return Transform.rotate(
       angle: angleDegrees * (math.pi / 180),
       child: SizedBox(
@@ -185,11 +220,18 @@ class UploadSection extends StatelessWidget {
     );
   }
 
-  Widget _buildFileTile(PlatformFile file, AssessmentViewModel vm, BuildContext context, ColorScheme colorScheme) {
+  Widget _buildFileTile(
+    PlatformFile file,
+    AssessmentNotifier notifier,
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     IconData fileIcon = Icons.insert_drive_file_rounded;
     Color iconColor = colorScheme.onSurfaceVariant;
 
-    final String extension = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : '';
+    final String extension = file.name.contains('.')
+        ? file.name.split('.').last.toLowerCase()
+        : '';
     final int fileSize = file.path != null ? File(file.path!).lengthSync() : 0;
 
     if (extension == 'pdf') {
@@ -237,7 +279,7 @@ class UploadSection extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   "${(fileSize / (1024 * 1024)).toStringAsFixed(2)} MB",
                   style: TextStyle(
@@ -250,8 +292,11 @@ class UploadSection extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: colorScheme.error.withAlpha(200)),
-            onPressed: () => vm.removeFile(file),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: colorScheme.error.withAlpha(200),
+            ),
+            onPressed: () => notifier.removeFile(file),
           ),
         ],
       ),

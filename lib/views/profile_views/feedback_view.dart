@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../view_models/auth_view_model.dart';
-import '../../view_models/theme_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../view_models/auth_provider.dart';
+import '../../view_models/theme_provider.dart';
 import '../../utils/responsive_ui.dart';
 
-class FeedbackView extends StatefulWidget {
+class FeedbackView extends ConsumerStatefulWidget {
   const FeedbackView({super.key});
 
   @override
-  State<FeedbackView> createState() => _FeedbackViewState();
+  ConsumerState<FeedbackView> createState() => _FeedbackViewState();
 }
 
-class _FeedbackViewState extends State<FeedbackView> {
+class _FeedbackViewState extends ConsumerState<FeedbackView> {
   final TextEditingController _feedbackController = TextEditingController();
 
   @override
@@ -22,15 +22,15 @@ class _FeedbackViewState extends State<FeedbackView> {
 
   @override
   Widget build(BuildContext context) {
-    final themeVM = context.watch<ThemeViewModel>();
+    final themeState = ref.watch(themeProvider);
+    final isLoading = ref.watch(authProvider.select((s) => s.isLoading));
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        // Dynamic AppBar coloring based on the theme rule
-        backgroundColor: themeVM.isDarkMode
+        backgroundColor: themeState.isDarkMode
             ? colorScheme.surface
             : colorScheme.primary,
         elevation: 0,
@@ -101,65 +101,60 @@ class _FeedbackViewState extends State<FeedbackView> {
               ),
             ),
             SizedBox(height: context.heightPercent(0.04)),
-            Consumer<AuthViewModel>(
-              builder: (context, authVM, child) {
-                return GestureDetector(
-                  onTap: () async {
-                    FocusScope.of(context).unfocus();
-                    final message = _feedbackController.text.trim();
-                    if (message.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Please enter some feedback first."),
-                        ),
-                      );
-                      return;
-                    }
+            GestureDetector(
+              onTap: () async {
+                FocusScope.of(context).unfocus();
+                final message = _feedbackController.text.trim();
+                if (message.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Please enter some feedback first."),
+                    ),
+                  );
+                  return;
+                }
 
-                    final success = await authVM.submitFeedback(
-                      context,
-                      message,
-                    );
-                    if (success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Thank you for your feedback!"),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Container(
-                    height: context.heightPercent(0.065),
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary,
-                      borderRadius: BorderRadius.circular(25),
+                final success = await ref
+                    .read(authProvider.notifier)
+                    .submitFeedback(context, message);
+                if (success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Thank you for your feedback!"),
+                      backgroundColor: Colors.green,
                     ),
-                    child: Center(
-                      child: authVM.isLoading
-                          ? SizedBox(
-                        height: context.widthPercent(0.06),
-                        width: context.widthPercent(0.06),
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                          : Text(
-                        "Submit Feedback",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Lato',
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.isMobile ? 16 : 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                  );
+                  Navigator.pop(context);
+                }
               },
+              child: Container(
+                height: context.heightPercent(0.065),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Center(
+                  child: isLoading
+                      ? SizedBox(
+                          height: context.widthPercent(0.06),
+                          width: context.widthPercent(0.06),
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : Text(
+                          "Submit Feedback",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Lato',
+                            fontWeight: FontWeight.bold,
+                            fontSize: context.isMobile ? 16 : 18,
+                          ),
+                        ),
+                ),
+              ),
             ),
           ],
         ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart'; // Added Provider
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../repository/image_repository.dart';
 import '../../utils/theme/app_colors.dart';
 import '../../utils/utils.dart';
-import '../../view_models/auth_view_model.dart'; // Added ViewModel
+import '../../view_models/auth_provider.dart';
 
-class ProfilePictureWidget extends StatefulWidget {
+class ProfilePictureWidget extends ConsumerStatefulWidget {
   final String userId;
   final String? initialAvatarUrl;
   final double radius;
@@ -21,10 +21,10 @@ class ProfilePictureWidget extends StatefulWidget {
   });
 
   @override
-  State<ProfilePictureWidget> createState() => _ProfilePictureWidgetState();
+  ConsumerState<ProfilePictureWidget> createState() => _ProfilePictureWidgetState();
 }
 
-class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
+class _ProfilePictureWidgetState extends ConsumerState<ProfilePictureWidget> {
   bool _isUploading = false;
   String? _currentAvatarUrl;
   final ImageRepository _imageRepo = ImageRepository();
@@ -38,7 +38,6 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
   @override
   void didUpdateWidget(covariant ProfilePictureWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reacts instantly when the AuthViewModel broadcasts a new URL
     if (widget.initialAvatarUrl != oldWidget.initialAvatarUrl) {
       setState(() {
         _currentAvatarUrl = widget.initialAvatarUrl;
@@ -50,13 +49,10 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
     setState(() => _isUploading = true);
 
     try {
-      // 1. The ImageRepository uploads the new file and deletes the old one
       await _imageRepo.pickCropCompressAndUpload(widget.userId);
 
-      // 2. Force the AuthViewModel to fetch the fresh profile.
-      // This triggers notifyListeners(), updating every screen instantly!
       if (mounted) {
-        await context.read<AuthViewModel>().fetchUserProfile();
+        await ref.read(authProvider.notifier).fetchUserProfile();
       }
     } catch (e) {
       if (mounted) {
@@ -109,7 +105,7 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
               right: 0,
               child: Container(
                 padding: EdgeInsets.all(widget.radius * 0.15),
-                decoration:  BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primaryLight,
                   shape: BoxShape.circle,
                 ),
@@ -126,7 +122,7 @@ class _ProfilePictureWidgetState extends State<ProfilePictureWidget> {
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withAlpha(150), // Fixed invalid alpha value (max 255)
+                color: Colors.black.withAlpha(150),
               ),
               child: Center(
                 child: SizedBox(

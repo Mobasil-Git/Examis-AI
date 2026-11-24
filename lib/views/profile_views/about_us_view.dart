@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../view_models/theme_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../view_models/theme_provider.dart';
 import '../../utils/responsive_ui.dart';
 
-class AboutUsView extends StatelessWidget {
+class AboutUsView extends ConsumerWidget {
   const AboutUsView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final themeVM = context.watch<ThemeViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        // Dynamic AppBar coloring implemented
-        backgroundColor: themeVM.isDarkMode
+        backgroundColor: themeState.isDarkMode
             ? colorScheme.surface
             : colorScheme.primary,
         elevation: 0,

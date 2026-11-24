@@ -1,19 +1,22 @@
 import 'dart:async';
+import 'package:examisai/utils/utils.dart';
+import 'package:examisai/view_models/assessment_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../view_models/assessment_view_model.dart';
 import '../../repository/export_repository.dart';
 import '../../utils/responsive_ui.dart';
 
-class AssessmentPreviewView extends StatelessWidget {
+class AssessmentPreviewView extends ConsumerWidget {
   const AssessmentPreviewView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
-    final data = vm.generatedAssessment;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final assessmentState = ref.watch(assessmentProvider);
+    final assessmentNotifier = ref.read(assessmentProvider.notifier);
+    final data = assessmentState.generatedAssessment;
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -35,9 +38,7 @@ class AssessmentPreviewView extends StatelessWidget {
     final List<dynamic> diagramQs = data['diagram_questions'] ?? [];
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      // Inherits Scaffold color from Wizard
-      // BUG FIX: Restored the Export Bottom Nav Bar
+      backgroundColor: theme.scaffoldBackgroundColor,
       bottomNavigationBar: SafeArea(
         child: Container(
           decoration: BoxDecoration(
@@ -53,314 +54,320 @@ class AssessmentPreviewView extends StatelessWidget {
             icon: Icons.description_outlined,
             color: Colors.blueAccent,
             onTap: () {
-              _showTemplateSelectionBottomSheet(context, data);
+              _showTemplateSelectionBottomSheet(context, ref, data);
             },
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.widthPercent(0.06),
-          vertical: context.heightPercent(0.02),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Step 4: Preview & Refine",
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontFamily: 'Lato',
-                fontWeight: FontWeight.w900,
-                fontSize: context.isMobile ? 22 : 26,
-              ),
-            ),
-            SizedBox(height: context.heightPercent(0.01)),
-            Text(
-              "Review the AI-generated questions. Tap the refresh icon next to any question to instantly regenerate it.",
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontFamily: 'Lato',
-                fontSize: context.isMobile ? 14 : 16,
-                height: 1.4,
-              ),
-            ),
-            SizedBox(height: context.heightPercent(0.03)),
-
-            // --- ASSESSMENT TITLE ---
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(context.widthPercent(0.04)),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                title,
+      body: Padding(
+        padding: EdgeInsets.only(top: context.heightPercent(0.025)),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.widthPercent(0.06),
+            vertical: context.heightPercent(0.02),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Step 4: Preview & Refine",
                 style: TextStyle(
-                  color: colorScheme.onPrimaryContainer,
+                  color: colorScheme.primary,
                   fontFamily: 'Lato',
-                  fontSize: context.isMobile ? 18 : 22,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
+                  fontWeight: FontWeight.w900,
+                  fontSize: context.isMobile ? 22 : 26,
                 ),
               ),
-            ),
-            SizedBox(height: context.heightPercent(0.02)),
-
-            if (customQs.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                "Scenarios & Custom Questions",
-                colorScheme,
+              SizedBox(height: context.heightPercent(0.01)),
+              Text(
+                "Review the AI-generated questions. Tap the refresh icon next to any question to instantly regenerate it.",
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFamily: 'Lato',
+                  fontSize: context.isMobile ? 14 : 16,
+                  height: 1.4,
+                ),
               ),
-              ...customQs.asMap().entries.map((entry) {
-                int index = entry.key + 1;
-                Map<String, dynamic> scData = entry.value;
-                return Container(
-                  margin: EdgeInsets.only(bottom: context.heightPercent(0.02)),
-                  padding: EdgeInsets.all(context.widthPercent(0.04)),
-                  // BUG FIX: Updated to Elevated Card Styling
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(10),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+              SizedBox(height: context.heightPercent(0.03)),
+
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(context.widthPercent(0.04)),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: colorScheme.onPrimaryContainer,
+                    fontFamily: 'Lato',
+                    fontSize: context.isMobile ? 18 : 22,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${scData['type']} $index (${scData['marks']} Marks)",
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontFamily: 'Lato',
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.isMobile ? 16 : 18,
-                        ),
-                      ),
-                      SizedBox(height: context.heightPercent(0.01)),
-                      Text(
-                        (scData['question'] ?? scData['text'] ?? 'No text provided').toString(),
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontFamily: 'Lato',
-                          fontSize: context.isMobile ? 14 : 16,
-                        ),
-                      ),
-                      if (scData['sub_parts'] != null &&
-                          (scData['sub_parts'] as List).isNotEmpty) ...[
-                        SizedBox(height: context.heightPercent(0.015)),
-                        ...(scData['sub_parts'] as List).map(
-                          (part) => Padding(
-                            padding: EdgeInsets.only(
-                              bottom: context.heightPercent(0.01),
-                              left: context.widthPercent(0.04),
-                            ),
-                            child: Text(
-                              "(${part['label']}) ${part['question']} [${part['marks']}]",
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontFamily: 'Lato',
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                ),
+              ),
+              SizedBox(height: context.heightPercent(0.02)),
+
+              if (customQs.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context,
+                  "Scenarios & Custom Questions",
+                  colorScheme,
+                ),
+                ...customQs.asMap().entries.map((entry) {
+                  int index = entry.key + 1;
+                  Map<String, dynamic> scData = entry.value;
+                  return Container(
+                    margin: EdgeInsets.only(
+                      bottom: context.heightPercent(0.02),
+                    ),
+                    padding: EdgeInsets.all(context.widthPercent(0.04)),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(10),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
-                    ],
-                  ),
-                );
-              }),
-            ],
-
-            if (mcqs.isNotEmpty) ...[
-              _buildSectionHeader(
-                context,
-                "Multiple Choice (${mcqs.length})",
-                colorScheme,
-              ),
-              ...mcqs.asMap().entries.map(
-                (entry) => _buildMCQCard(
-                  entry.key,
-                  entry.value,
-                  context,
-                  vm,
-                  colorScheme,
-                  theme,
-                ),
-              ),
-            ],
-            if (fillBlanks.isNotEmpty) ...[
-              SizedBox(height: context.heightPercent(0.02)),
-              _buildSectionHeader(
-                context,
-                "Fill in the Blanks (${fillBlanks.length})",
-                colorScheme,
-              ),
-              ...fillBlanks.asMap().entries.map(
-                (entry) => _buildFillBlankCard(
-                  entry.key,
-                  entry.value,
-                  context,
-                  vm,
-                  colorScheme,
-                ),
-              ),
-            ],
-            if (shortQs.isNotEmpty) ...[
-              SizedBox(height: context.heightPercent(0.02)),
-              _buildSectionHeader(
-                context,
-                "Short Answer (${shortQs.length})",
-                colorScheme,
-              ),
-              ...shortQs.asMap().entries.map(
-                (entry) => _buildShortQCard(
-                  entry.key,
-                  entry.value,
-                  context,
-                  vm,
-                  colorScheme,
-                  theme,
-                ),
-              ),
-            ],
-            if (longQs.isNotEmpty) ...[
-              SizedBox(height: context.heightPercent(0.02)),
-              _buildSectionHeader(
-                context,
-                "Long Essay (${longQs.length})",
-                colorScheme,
-              ),
-              ...longQs.asMap().entries.map(
-                (entry) => _buildLongQCard(
-                  entry.key,
-                  entry.value,
-                  context,
-                  vm,
-                  colorScheme,
-                ),
-              ),
-            ],
-
-            if (diagramQs.isNotEmpty) ...[
-              SizedBox(height: context.heightPercent(0.02)),
-              _buildSectionHeader(
-                context,
-                "Diagrams & Visuals (${diagramQs.length})",
-                colorScheme,
-              ),
-              ...diagramQs.asMap().entries.map((entry) {
-                final diagram = entry.value;
-                final int displayIndex = entry.key + 1;
-                return Container(
-                  margin: EdgeInsets.only(bottom: context.heightPercent(0.02)),
-                  padding: EdgeInsets.all(context.widthPercent(0.04)),
-                  // BUG FIX: Updated to Elevated Card Styling
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(10),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              "$displayIndex. ${diagram['question'] ?? ""}",
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontFamily: 'Lato',
-                                fontSize: context.isMobile ? 16 : 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${scData['type']} $index (${scData['marks']} Marks)",
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontFamily: 'Lato',
+                            fontWeight: FontWeight.bold,
+                            fontSize: context.isMobile ? 16 : 18,
                           ),
-                          SizedBox(width: context.widthPercent(0.02)),
-                          Text(
-                            "[${diagram['marks']} Marks]",
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
+                        ),
+                        SizedBox(height: context.heightPercent(0.01)),
+                        Text(
+                          (scData['question'] ??
+                                  scData['text'] ??
+                                  'No text provided')
+                              .toString(),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontFamily: 'Lato',
+                            fontSize: context.isMobile ? 14 : 16,
+                          ),
+                        ),
+                        if (scData['sub_parts'] != null &&
+                            (scData['sub_parts'] as List).isNotEmpty) ...[
+                          SizedBox(height: context.heightPercent(0.015)),
+                          ...(scData['sub_parts'] as List).map(
+                            (part) => Padding(
+                              padding: EdgeInsets.only(
+                                bottom: context.heightPercent(0.01),
+                                left: context.widthPercent(0.04),
+                              ),
+                              child: Text(
+                                "(${part['label']}) ${part['question']} [${part['marks']}]",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontFamily: 'Lato',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      if (diagram['target_clo'] != null &&
-                          diagram['target_clo'].toString().isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            top: context.heightPercent(0.005),
-                            bottom: context.heightPercent(0.01),
-                          ),
-                          child: Text(
-                            diagram['target_clo'],
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              color: colorScheme.onSurfaceVariant,
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              if (mcqs.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context,
+                  "Multiple Choice (${mcqs.length})",
+                  colorScheme,
+                ),
+                ...mcqs.asMap().entries.map(
+                  (entry) => _buildMCQCard(
+                    entry.key,
+                    entry.value,
+                    context,
+                    assessmentNotifier,
+                    colorScheme,
+                  ),
+                ),
+              ],
+              if (fillBlanks.isNotEmpty) ...[
+                SizedBox(height: context.heightPercent(0.02)),
+                _buildSectionHeader(
+                  context,
+                  "Fill in the Blanks (${fillBlanks.length})",
+                  colorScheme,
+                ),
+                ...fillBlanks.asMap().entries.map(
+                  (entry) => _buildFillBlankCard(
+                    entry.key,
+                    entry.value,
+                    context,
+                    assessmentNotifier,
+                    colorScheme,
+                  ),
+                ),
+              ],
+              if (shortQs.isNotEmpty) ...[
+                SizedBox(height: context.heightPercent(0.02)),
+                _buildSectionHeader(
+                  context,
+                  "Short Answer (${shortQs.length})",
+                  colorScheme,
+                ),
+                ...shortQs.asMap().entries.map(
+                  (entry) => _buildShortQCard(
+                    entry.key,
+                    entry.value,
+                    context,
+                    assessmentNotifier,
+                    colorScheme,
+                  ),
+                ),
+              ],
+              if (longQs.isNotEmpty) ...[
+                SizedBox(height: context.heightPercent(0.02)),
+                _buildSectionHeader(
+                  context,
+                  "Long Essay (${longQs.length})",
+                  colorScheme,
+                ),
+                ...longQs.asMap().entries.map(
+                  (entry) => _buildLongQCard(
+                    entry.key,
+                    entry.value,
+                    context,
+                    assessmentNotifier,
+                    colorScheme,
+                  ),
+                ),
+              ],
+
+              if (diagramQs.isNotEmpty) ...[
+                SizedBox(height: context.heightPercent(0.02)),
+                _buildSectionHeader(
+                  context,
+                  "Diagrams & Visuals (${diagramQs.length})",
+                  colorScheme,
+                ),
+                ...diagramQs.asMap().entries.map((entry) {
+                  final diagram = entry.value;
+                  final int displayIndex = entry.key + 1;
+                  return Container(
+                    margin: EdgeInsets.only(
+                      bottom: context.heightPercent(0.02),
+                    ),
+                    padding: EdgeInsets.all(context.widthPercent(0.04)),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(10),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "$displayIndex. ${diagram['question'] ?? ""}",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontFamily: 'Lato',
+                                  fontSize: context.isMobile ? 16 : 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: context.widthPercent(0.02)),
+                            Text(
+                              "[${diagram['marks']} Marks]",
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (diagram['target_clo'] != null &&
+                            diagram['target_clo'].toString().isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: context.heightPercent(0.005),
+                              bottom: context.heightPercent(0.01),
+                            ),
+                            child: Text(
+                              diagram['target_clo'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
-                        ),
-                      SizedBox(height: context.heightPercent(0.015)),
-                      if (diagram['image_url'] != null &&
-                          diagram['image_url'].toString().isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            diagram['image_url'],
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return SizedBox(
-                                height: context.heightPercent(0.12),
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  height: context.heightPercent(0.12),
-                                  decoration: BoxDecoration(
-                                    color: theme.scaffoldBackgroundColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.broken_image_rounded,
-                                      color: Colors.grey,
-                                      size: 40,
+                        SizedBox(height: context.heightPercent(0.015)),
+                        if (diagram['image_url'] != null &&
+                            diagram['image_url'].toString().isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              diagram['image_url'],
+                              width: double.infinity,
+                              fit: BoxFit.contain,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return SizedBox(
+                                      height: context.heightPercent(0.12),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    height: context.heightPercent(0.12),
+                                    decoration: BoxDecoration(
+                                      color: theme.scaffoldBackgroundColor,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.broken_image_rounded,
+                                        color: Colors.grey,
+                                        size: 40,
+                                      ),
                                     ),
                                   ),
-                                ),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                );
-              }),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+              SizedBox(height: context.heightPercent(0.01)),
             ],
-            SizedBox(height: context.heightPercent(0.01)),
-          ],
+          ),
         ),
       ),
     );
@@ -393,11 +400,10 @@ class AssessmentPreviewView extends StatelessWidget {
     int listIndex,
     Map<String, dynamic> questionData,
     BuildContext context,
-    AssessmentViewModel vm,
+    AssessmentNotifier notifier,
     ColorScheme colorScheme,
-    ThemeData theme,
   ) {
-    final bool isRegenerating = vm.isRegenerating("mcqs", listIndex);
+    final bool isRegenerating = notifier.isRegenerating("mcqs", listIndex);
     final int displayIndex = listIndex + 1;
     final List<dynamic> options = questionData['options'] ?? [];
 
@@ -445,8 +451,11 @@ class AssessmentPreviewView extends StatelessWidget {
                           color: colorScheme.primary,
                           size: 20,
                         ),
-                        onPressed: () =>
-                            vm.regenerateSingleItem(context, "mcqs", listIndex),
+                        onPressed: () => notifier.regenerateSingleItem(
+                          context,
+                          "mcqs",
+                          listIndex,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -503,11 +512,13 @@ class AssessmentPreviewView extends StatelessWidget {
     int listIndex,
     Map<String, dynamic> questionData,
     BuildContext context,
-    AssessmentViewModel vm,
+    AssessmentNotifier notifier,
     ColorScheme colorScheme,
-    ThemeData theme,
   ) {
-    final bool isRegenerating = vm.isRegenerating("shortQuestions", listIndex);
+    final bool isRegenerating = notifier.isRegenerating(
+      "shortQuestions",
+      listIndex,
+    );
     final int displayIndex = listIndex + 1;
 
     return AnimatedSwitcher(
@@ -562,7 +573,7 @@ class AssessmentPreviewView extends StatelessWidget {
                           color: colorScheme.primary,
                           size: 20,
                         ),
-                        onPressed: () => vm.regenerateSingleItem(
+                        onPressed: () => notifier.regenerateSingleItem(
                           context,
                           "shortQuestions",
                           listIndex,
@@ -619,10 +630,13 @@ class AssessmentPreviewView extends StatelessWidget {
     int listIndex,
     Map<String, dynamic> questionData,
     BuildContext context,
-    AssessmentViewModel vm,
+    AssessmentNotifier notifier,
     ColorScheme colorScheme,
   ) {
-    final bool isRegenerating = vm.isRegenerating("longQuestions", listIndex);
+    final bool isRegenerating = notifier.isRegenerating(
+      "longQuestions",
+      listIndex,
+    );
     final int displayIndex = listIndex + 1;
 
     return AnimatedSwitcher(
@@ -652,10 +666,39 @@ class AssessmentPreviewView extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: Text("$displayIndex. ${questionData['question']}", style: TextStyle(color: colorScheme.onSurface, fontFamily: 'Lato', fontSize: context.isMobile ? 16 : 18, fontWeight: FontWeight.w600))),
+                      Expanded(
+                        child: Text(
+                          "$displayIndex. ${questionData['question']}",
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontFamily: 'Lato',
+                            fontSize: context.isMobile ? 16 : 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                       SizedBox(width: context.widthPercent(0.02)),
-                      Text("[${questionData['marks'] ?? '?'} Marks]", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900)),
-                      IconButton(icon: Icon(Icons.refresh, color: colorScheme.primary, size: 20), onPressed: () => vm.regenerateSingleItem(context, "longQuestions", listIndex), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                      Text(
+                        "[${questionData['marks'] ?? '?'} Marks]",
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.refresh,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        onPressed: () => notifier.regenerateSingleItem(
+                          context,
+                          "longQuestions",
+                          listIndex,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
                     ],
                   ),
                   if (questionData['sub_parts'] != null &&
@@ -766,10 +809,13 @@ class AssessmentPreviewView extends StatelessWidget {
     int listIndex,
     Map<String, dynamic> questionData,
     BuildContext context,
-    AssessmentViewModel vm,
+    AssessmentNotifier notifier,
     ColorScheme colorScheme,
   ) {
-    final bool isRegenerating = vm.isRegenerating("fillInTheBlanks", listIndex);
+    final bool isRegenerating = notifier.isRegenerating(
+      "fillInTheBlanks",
+      listIndex,
+    );
     final int displayIndex = listIndex + 1;
 
     return AnimatedSwitcher(
@@ -816,7 +862,7 @@ class AssessmentPreviewView extends StatelessWidget {
                           color: colorScheme.primary,
                           size: 20,
                         ),
-                        onPressed: () => vm.regenerateSingleItem(
+                        onPressed: () => notifier.regenerateSingleItem(
                           context,
                           "fillInTheBlanks",
                           listIndex,
@@ -892,11 +938,14 @@ class AssessmentPreviewView extends StatelessWidget {
 
   void _showTemplateSelectionBottomSheet(
     BuildContext pageContext,
+    WidgetRef ref,
     Map<String, dynamic> data,
   ) {
     bool showCloTags = false;
     final theme = Theme.of(pageContext);
     final colorScheme = theme.colorScheme;
+
+    final assessmentState = ref.read(assessmentProvider);
 
     showModalBottomSheet(
       context: pageContext,
@@ -933,7 +982,6 @@ class AssessmentPreviewView extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: pageContext.heightPercent(0.02)),
-                  // FIXED: Wrapped in Material to prevent ink splash assertion crash
                   Container(
                     decoration: BoxDecoration(
                       color: colorScheme.surface,
@@ -946,7 +994,7 @@ class AssessmentPreviewView extends StatelessWidget {
                       color: Colors.transparent,
                       child: SwitchListTile(
                         value: showCloTags,
-                        activeColor: colorScheme.primary,
+                        activeThumbColor: colorScheme.primary,
                         title: Text(
                           "Include CLO Tags",
                           style: TextStyle(
@@ -1054,39 +1102,53 @@ class AssessmentPreviewView extends StatelessWidget {
                                 horizontal: pageContext.widthPercent(0.04),
                                 vertical: pageContext.heightPercent(0.005),
                               ),
+                              // REPLACE YOUR ONTAP INSIDE THE BOTTOM SHEET WITH THIS:
                               onTap: () async {
                                 Navigator.pop(bottomSheetContext);
                                 _showSmartLoadingDialog(pageContext);
 
                                 final String selectedUrl =
                                     institute['template_url'];
-                                final vm = pageContext
-                                    .read<AssessmentViewModel>();
 
-                                final success = await ExportRepository()
-                                    .exportToWord(
-                                      data,
-                                      selectedUrl,
-                                      showCloTags,
-                                      vm.selectedExamType,
-                                      vm.currentTargetMarks,
-                                      vm.selectedCourseTitle ??
-                                          "Unknown Course",
-                                      vm.courseCreditHours,
-                                      vm.selectedDepartmentName ?? "General",
-                                    );
+                                try {
+                                  final success = await ExportRepository()
+                                      .exportToWord(
+                                        data,
+                                        selectedUrl,
+                                        showCloTags,
+                                        assessmentState.selectedExamType,
+                                        assessmentState.currentTargetMarks,
+                                        assessmentState.selectedCourseTitle ??
+                                            "Unknown Course",
+                                        assessmentState.courseCreditHours,
+                                        assessmentState
+                                                .selectedDepartmentName ??
+                                            "General",
+                                      );
 
-                                if (pageContext.mounted) {
-                                  Navigator.pop(pageContext);
-                                  if (!success) {
-                                    ScaffoldMessenger.of(
+                                  if (pageContext.mounted) {
+                                    Navigator.pop(
                                       pageContext,
-                                    ).showSnackBar(
+                                    ); // Pop the loading dialog
+                                    if (!success) {
+                                      Utils.showSnackBar(
+                                        pageContext,
+                                        "Failed to export DOCX. Server might be down.",
+                                        colorScheme.error,
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (pageContext.mounted) {
+                                    Navigator.pop(pageContext); // Close dialog
+                                    String errorMsg = e.toString().replaceAll('Exception: ', '');
+                                    // Cap length to prevent SnackBar layout crashes
+                                    if (errorMsg.length > 120) {
+                                      errorMsg = "${errorMsg.substring(0, 120)}...";
+                                    }
+                                    ScaffoldMessenger.of(pageContext).showSnackBar(
                                       SnackBar(
-                                        content: const Text(
-                                          "Failed to export DOCX. Server might be down.",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
+                                        content: Text(errorMsg, style: const TextStyle(color: Colors.white)),
                                         backgroundColor: colorScheme.error,
                                       ),
                                     );
@@ -1112,9 +1174,7 @@ class AssessmentPreviewView extends StatelessWidget {
     showDialog(
       context: parentContext,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return const _SmartLoadingDialog();
-      },
+      builder: (BuildContext dialogContext) => const _SmartLoadingDialog(),
     );
   }
 }
@@ -1135,9 +1195,10 @@ class _SmartLoadingDialogState extends State<_SmartLoadingDialog> {
     super.initState();
     _timer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
-        setState(() {
-          _message = "Waking up the server...\nThis may take up to a minute. ☕";
-        });
+        setState(
+          () => _message =
+              "Waking up the server...\nThis may take up to a minute. ☕",
+        );
       }
     });
   }

@@ -1,22 +1,23 @@
 import 'dart:async';
+import 'package:examisai/view_models/auth_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../resources/components/forgot_password_dialogs.dart';
 import '../../resources/components/build_social_icon.dart';
 import '../../resources/components/universal_text_field.dart';
-import '../../view_models/auth_view_model.dart';
 import '../../utils/responsive_ui.dart';
 import '../../utils/routes/route_names.dart';
 
-class LoginView extends StatefulWidget {
+
+class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
 
   @override
-  State<LoginView> createState() => _LoginViewState();
+  ConsumerState<LoginView> createState() => _LoginViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _LoginViewState extends ConsumerState<LoginView> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool isPasswordHidden = true;
@@ -29,12 +30,8 @@ class _LoginViewState extends State<LoginView> {
 
     _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
-
-      if (event == AuthChangeEvent.signedIn) {
-        if (mounted) {
-          // Implementing Custom Routing
-          Navigator.pushReplacementNamed(context, RouteNames.home);
-        }
+      if (event == AuthChangeEvent.signedIn && mounted) {
+        Navigator.pushReplacementNamed(context, RouteNames.home);
       }
     });
   }
@@ -155,10 +152,14 @@ class _LoginViewState extends State<LoginView> {
                         ),
                       ),
                       SizedBox(height: context.heightPercent(0.017)),
-                      Consumer<AuthViewModel>(
-                        builder: (context, authVM, child) {
+
+                      // Optimization: Only this action button listens to AuthState changes
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final isLoading = ref.watch(authProvider.select((s) => s.isLoading));
+
                           return GestureDetector(
-                            onTap: authVM.isLoading
+                            onTap: isLoading
                                 ? null
                                 : () async {
                               FocusScope.of(context).unfocus();
@@ -172,14 +173,13 @@ class _LoginViewState extends State<LoginView> {
                                 return;
                               }
 
-                              final success = await authVM.signIn(
+                              final success = await ref.read(authProvider.notifier).signIn(
                                 context,
                                 email: emailController.text.trim(),
                                 password: passwordController.text.trim(),
                               );
 
                               if (success && context.mounted) {
-                                // Implementing Custom Routing
                                 Navigator.pushNamedAndRemoveUntil(
                                   context,
                                   RouteNames.home,
@@ -191,13 +191,13 @@ class _LoginViewState extends State<LoginView> {
                               height: context.heightPercent(0.065),
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: authVM.isLoading
+                                color: isLoading
                                     ? colorScheme.primary.withAlpha(150)
                                     : colorScheme.primary,
                                 borderRadius: BorderRadius.circular(25),
                               ),
                               child: Center(
-                                child: authVM.isLoading
+                                child: isLoading
                                     ? SizedBox(
                                   height: context.widthPercent(0.06),
                                   width: context.widthPercent(0.06),
@@ -243,7 +243,7 @@ class _LoginViewState extends State<LoginView> {
                         image: 'assets/social_icons/google.png',
                         text: "Continue with Google",
                         onTap: () async {
-                          await context.read<AuthViewModel>().signInWithGoogle(context);
+                          await ref.read(authProvider.notifier).signInWithGoogle(context);
                         },
                       ),
                     ],
@@ -262,7 +262,6 @@ class _LoginViewState extends State<LoginView> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        // Implementing Custom Routing
                         Navigator.pushReplacementNamed(context, RouteNames.signUp);
                       },
                       child: Text(

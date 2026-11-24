@@ -1,17 +1,18 @@
+import 'package:examisai/view_models/assessment_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import '../../../view_models/assessment_view_model.dart';
 import '../../../utils/responsive_ui.dart';
 import '../universal_text_field.dart';
 
-class CustomQuestionsStep extends StatelessWidget {
+class CustomQuestionsStep extends ConsumerWidget {
   const CustomQuestionsStep({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final notifier = ref.read(assessmentProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -44,7 +45,7 @@ class CustomQuestionsStep extends StatelessWidget {
           ),
           SizedBox(height: context.heightPercent(0.03)),
 
-          ...vm.customQuestions.asMap().entries.map((entry) {
+          ...state.customQuestions.asMap().entries.map((entry) {
             int qIndex = entry.key;
             var qState = entry.value;
             bool hasSubParts = qState.subParts.isNotEmpty;
@@ -75,7 +76,10 @@ class CustomQuestionsStep extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primary.withAlpha(20),
                           borderRadius: BorderRadius.circular(8),
@@ -90,13 +94,14 @@ class CustomQuestionsStep extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (vm.customQuestions.length > 1)
+                      if (state.customQuestions.length > 1)
                         IconButton(
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             color: colorScheme.error.withAlpha(200),
                           ),
-                          onPressed: () => vm.removeCustomQuestion(qIndex),
+                          onPressed: () =>
+                              notifier.removeCustomQuestion(qIndex),
                         ),
                     ],
                   ),
@@ -117,7 +122,7 @@ class CustomQuestionsStep extends StatelessWidget {
                       ),
                       value: qState.useAI,
                       onChanged: (val) =>
-                          vm.toggleCustomQuestionAI(qIndex, val),
+                          notifier.toggleCustomQuestionAI(qIndex, val),
                       activeColor: colorScheme.primary,
                     ),
                   ),
@@ -140,14 +145,13 @@ class CustomQuestionsStep extends StatelessWidget {
                             child: DropdownButton<String>(
                               isExpanded: true,
                               value:
-                              vm.activeSubjectiveIngredientNames.contains(
-                                qState.type,
-                              )
+                                  state.activeSubjectiveIngredientNames
+                                      .contains(qState.type)
                                   ? qState.type
-                                  : vm.activeSubjectiveIngredientNames.first,
-                              items: vm.activeSubjectiveIngredientNames.map((
-                                  name,
-                                  ) {
+                                  : state.activeSubjectiveIngredientNames.first,
+                              items: state.activeSubjectiveIngredientNames.map((
+                                name,
+                              ) {
                                 return DropdownMenuItem(
                                   value: name,
                                   child: Text(
@@ -160,10 +164,14 @@ class CustomQuestionsStep extends StatelessWidget {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: (val) => vm.updateCustomQuestionType(
-                                qIndex,
-                                val ?? vm.activeSubjectiveIngredientNames.first,
-                              ),
+                              onChanged: (val) =>
+                                  notifier.updateCustomQuestionType(
+                                    qIndex,
+                                    val ??
+                                        state
+                                            .activeSubjectiveIngredientNames
+                                            .first,
+                                  ),
                             ),
                           ),
                         ),
@@ -171,10 +179,9 @@ class CustomQuestionsStep extends StatelessWidget {
                       SizedBox(width: context.widthPercent(0.02)),
                       Expanded(
                         child: WizardCloDropdown(
-                          vm: vm,
                           currentValue: qState.targetClo,
                           onChanged: (val) =>
-                              vm.updateCustomQuestionClo(qIndex, val),
+                              notifier.updateCustomQuestionClo(qIndex, val),
                           colorScheme: colorScheme,
                         ),
                       ),
@@ -215,7 +222,9 @@ class CustomQuestionsStep extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: theme.scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colorScheme.outline.withAlpha(30)),
+                        border: Border.all(
+                          color: colorScheme.outline.withAlpha(30),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +261,6 @@ class CustomQuestionsStep extends StatelessWidget {
                                     ),
                                   ),
                                   SizedBox(width: context.widthPercent(0.02)),
-                                  // BUG FIX: Hide the hint field if useAI is true
                                   if (!qState.useAI) ...[
                                     Expanded(
                                       flex: 3,
@@ -279,8 +287,8 @@ class CustomQuestionsStep extends StatelessWidget {
                                       size: 20,
                                       color: colorScheme.error,
                                     ),
-                                    onPressed: () =>
-                                        vm.removeSubPartFromCustomQuestion(
+                                    onPressed: () => notifier
+                                        .removeSubPartFromCustomQuestion(
                                           qIndex,
                                           spIndex,
                                         ),
@@ -297,7 +305,8 @@ class CustomQuestionsStep extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
-                      onPressed: () => vm.addSubPartToCustomQuestion(qIndex),
+                      onPressed: () =>
+                          notifier.addSubPartToCustomQuestion(qIndex),
                       icon: Icon(
                         Icons.add_task_rounded,
                         size: 16,
@@ -320,14 +329,29 @@ class CustomQuestionsStep extends StatelessWidget {
           SizedBox(height: context.heightPercent(0.01)),
           Center(
             child: OutlinedButton.icon(
-              onPressed: vm.addCustomQuestion,
+              onPressed: notifier.addCustomQuestion,
               style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06), vertical: context.heightPercent(0.015)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.widthPercent(0.06),
+                  vertical: context.heightPercent(0.015),
+                ),
                 side: BorderSide(color: colorScheme.primary.withAlpha(100)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              icon: Icon(Icons.add_rounded, size: 20, color: colorScheme.primary),
-              label: Text("Add Another Question", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              icon: Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              label: Text(
+                "Add Another Question",
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           SizedBox(height: context.heightPercent(0.04)),
@@ -337,12 +361,13 @@ class CustomQuestionsStep extends StatelessWidget {
   }
 }
 
-class ScenariosStep extends StatelessWidget {
+class ScenariosStep extends ConsumerWidget {
   const ScenariosStep({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final notifier = ref.read(assessmentProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -375,7 +400,7 @@ class ScenariosStep extends StatelessWidget {
           ),
           SizedBox(height: context.heightPercent(0.03)),
 
-          ...vm.scenarioQuestions.asMap().entries.map((entry) {
+          ...state.scenarioQuestions.asMap().entries.map((entry) {
             int qIndex = entry.key;
             var qState = entry.value;
             bool isCodeMode = qState.type == 'Code';
@@ -415,20 +440,24 @@ class ScenariosStep extends StatelessWidget {
                         ],
                         selected: {qState.type},
                         onSelectionChanged: (Set<String> newSelection) =>
-                            vm.updateScenarioType(qIndex, newSelection.first),
+                            notifier.updateScenarioType(
+                              qIndex,
+                              newSelection.first,
+                            ),
                         style: SegmentedButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           selectedForegroundColor: Colors.white,
                           selectedBackgroundColor: colorScheme.primary,
                         ),
                       ),
-                      if (vm.scenarioQuestions.length > 1)
+                      if (state.scenarioQuestions.length > 1)
                         IconButton(
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             color: colorScheme.error.withAlpha(200),
                           ),
-                          onPressed: () => vm.removeScenarioQuestion(qIndex),
+                          onPressed: () =>
+                              notifier.removeScenarioQuestion(qIndex),
                         ),
                     ],
                   ),
@@ -449,7 +478,7 @@ class ScenariosStep extends StatelessWidget {
                       ),
                       value: qState.useAI,
                       onChanged: (val) =>
-                          vm.toggleScenarioAI(qIndex, val),
+                          notifier.toggleScenarioAI(qIndex, val),
                       activeColor: colorScheme.primary,
                     ),
                   ),
@@ -472,23 +501,29 @@ class ScenariosStep extends StatelessWidget {
                             child: DropdownButton<String>(
                               isExpanded: true,
                               value: qState.mergeCategory,
-                              items: ['Stand-alone', 'Short Question', 'Long Question'].map((name) {
-                                return DropdownMenuItem(
-                                  value: name,
-                                  child: Text(
-                                    name,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontFamily: 'Lato',
-                                      color: colorScheme.onSurface,
-                                    ),
+                              items:
+                                  [
+                                    'Stand-alone',
+                                    'Short Question',
+                                    'Long Question',
+                                  ].map((name) {
+                                    return DropdownMenuItem(
+                                      value: name,
+                                      child: Text(
+                                        name,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontFamily: 'Lato',
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                              onChanged: (val) =>
+                                  notifier.updateScenarioMergeCategory(
+                                    qIndex,
+                                    val ?? 'Stand-alone',
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (val) => vm.updateScenarioMergeCategory(
-                                qIndex,
-                                val ?? 'Stand-alone',
-                              ),
                             ),
                           ),
                         ),
@@ -496,9 +531,9 @@ class ScenariosStep extends StatelessWidget {
                       SizedBox(width: context.widthPercent(0.02)),
                       Expanded(
                         child: WizardCloDropdown(
-                          vm: vm,
                           currentValue: qState.targetClo,
-                          onChanged: (val) => vm.updateScenarioClo(qIndex, val),
+                          onChanged: (val) =>
+                              notifier.updateScenarioClo(qIndex, val),
                           colorScheme: colorScheme,
                         ),
                       ),
@@ -544,14 +579,29 @@ class ScenariosStep extends StatelessWidget {
           SizedBox(height: context.heightPercent(0.01)),
           Center(
             child: OutlinedButton.icon(
-              onPressed: vm.addScenarioQuestion,
+              onPressed: notifier.addScenarioQuestion,
               style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06), vertical: context.heightPercent(0.015)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.widthPercent(0.06),
+                  vertical: context.heightPercent(0.015),
+                ),
                 side: BorderSide(color: colorScheme.primary.withAlpha(100)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              icon: Icon(Icons.add_rounded, size: 20, color: colorScheme.primary),
-              label: Text("Add Another Item", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              icon: Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              label: Text(
+                "Add Another Item",
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           SizedBox(height: context.heightPercent(0.04)),
@@ -561,12 +611,13 @@ class ScenariosStep extends StatelessWidget {
   }
 }
 
-class DiagramsStep extends StatelessWidget {
+class DiagramsStep extends ConsumerWidget {
   const DiagramsStep({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final notifier = ref.read(assessmentProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -599,9 +650,9 @@ class DiagramsStep extends StatelessWidget {
           ),
           SizedBox(height: context.heightPercent(0.03)),
 
-          ...vm.diagramTextControllers.asMap().entries.map((entry) {
+          ...state.diagramTextControllers.asMap().entries.map((entry) {
             int index = entry.key;
-            File? imageFile = vm.diagramImages[index];
+            File? imageFile = state.diagramImages[index];
             return Container(
               margin: EdgeInsets.only(bottom: context.heightPercent(0.025)),
               padding: EdgeInsets.all(context.widthPercent(0.04)),
@@ -609,10 +660,10 @@ class DiagramsStep extends StatelessWidget {
                 color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: vm.diagramTargetCLOs[index] == null
+                  color: state.diagramTargetCLOs[index] == null
                       ? colorScheme.error.withAlpha(150)
                       : colorScheme.outline.withAlpha(40),
-                  width: vm.diagramTargetCLOs[index] == null ? 1.5 : 1.0,
+                  width: state.diagramTargetCLOs[index] == null ? 1.5 : 1.0,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -628,7 +679,10 @@ class DiagramsStep extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primary.withAlpha(20),
                           borderRadius: BorderRadius.circular(8),
@@ -643,27 +697,27 @@ class DiagramsStep extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (vm.diagramTextControllers.length > 1)
+                      if (state.diagramTextControllers.length > 1)
                         IconButton(
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             color: colorScheme.error.withAlpha(200),
                           ),
-                          onPressed: () => vm.removeDiagramQuestion(index),
+                          onPressed: () =>
+                              notifier.removeDiagramQuestion(index),
                         ),
                     ],
                   ),
                   SizedBox(height: context.heightPercent(0.02)),
                   WizardCloDropdown(
-                    vm: vm,
-                    currentValue: vm.diagramTargetCLOs[index],
-                    onChanged: (val) => vm.updateDiagramClo(index, val),
+                    currentValue: state.diagramTargetCLOs[index],
+                    onChanged: (val) => notifier.updateDiagramClo(index, val),
                     colorScheme: colorScheme,
                   ),
                   SizedBox(height: context.heightPercent(0.02)),
                   GestureDetector(
                     onTap: () =>
-                        vm.pickDiagramImage(index, ImageSource.gallery),
+                        notifier.pickDiagramImage(index, ImageSource.gallery),
                     child: Container(
                       height: context.heightPercent(0.15),
                       width: double.infinity,
@@ -676,28 +730,28 @@ class DiagramsStep extends StatelessWidget {
                       ),
                       child: imageFile != null
                           ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(imageFile, fit: BoxFit.cover),
-                      )
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(imageFile, fit: BoxFit.cover),
+                            )
                           : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate_rounded,
-                            color: colorScheme.primary,
-                            size: 32,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            "Tap to select image",
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_photo_alternate_rounded,
+                                  color: colorScheme.primary,
+                                  size: 32,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  "Tap to select image",
+                                  style: TextStyle(
+                                    color: colorScheme.primary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                   SizedBox(height: context.heightPercent(0.02)),
@@ -706,7 +760,7 @@ class DiagramsStep extends StatelessWidget {
                       Expanded(
                         flex: 3,
                         child: UniversalTextField(
-                          controller: vm.diagramTextControllers[index],
+                          controller: state.diagramTextControllers[index],
                           labelText: "Question for Diagram",
                         ),
                       ),
@@ -714,7 +768,7 @@ class DiagramsStep extends StatelessWidget {
                       Expanded(
                         flex: 1,
                         child: UniversalTextField(
-                          controller: vm.diagramMarksControllers[index],
+                          controller: state.diagramMarksControllers[index],
                           labelText: "Marks",
                           textAlign: TextAlign.center,
                           keyboardType: TextInputType.number,
@@ -729,14 +783,29 @@ class DiagramsStep extends StatelessWidget {
           SizedBox(height: context.heightPercent(0.01)),
           Center(
             child: OutlinedButton.icon(
-              onPressed: vm.addDiagramQuestion,
+              onPressed: notifier.addDiagramQuestion,
               style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.06), vertical: context.heightPercent(0.015)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.widthPercent(0.06),
+                  vertical: context.heightPercent(0.015),
+                ),
                 side: BorderSide(color: colorScheme.primary.withAlpha(100)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              icon: Icon(Icons.add_rounded, size: 20, color: colorScheme.primary),
-              label: Text("Add Another Image", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              icon: Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+              label: Text(
+                "Add Another Image",
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           SizedBox(height: context.heightPercent(0.04)),
@@ -746,29 +815,28 @@ class DiagramsStep extends StatelessWidget {
   }
 }
 
-class WizardCloDropdown extends StatelessWidget {
-  final AssessmentViewModel vm;
+class WizardCloDropdown extends ConsumerWidget {
   final String? currentValue;
   final ValueChanged<String?> onChanged;
   final ColorScheme colorScheme;
 
   const WizardCloDropdown({
     super.key,
-    required this.vm,
     required this.currentValue,
     required this.onChanged,
     required this.colorScheme,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final activeCLOs = vm.importedCLOs
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final activeCLOs = state.importedCLOs
         .where((c) => c['isSelected'] == true)
         .toList();
     if (activeCLOs.isEmpty) return const SizedBox.shrink();
 
     final List<String> validCloNames = activeCLOs
-        .map((c) => "CLO ${vm.importedCLOs.indexOf(c) + 1}")
+        .map((c) => "CLO ${state.importedCLOs.indexOf(c) + 1}")
         .toList();
     final String? safeValue = validCloNames.contains(currentValue)
         ? currentValue

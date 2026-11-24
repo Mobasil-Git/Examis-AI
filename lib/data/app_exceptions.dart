@@ -12,45 +12,50 @@ class AppExceptions implements Exception {
 
 class FetchDataException extends AppExceptions {
   FetchDataException([String? message])
-      : super(message, 'Error During Communication');
+    : super(message, 'Error During Communication');
 }
 
 class NoInternetException extends AppExceptions {
   NoInternetException([String? message])
-      : super(message, 'No Internet Connection');
+    : super(message, 'No Internet Connection');
 }
 
 class RequestTimeoutException extends AppExceptions {
   RequestTimeoutException([String? message])
-      : super(message, 'Request Timed Out');
+    : super(message, 'Request Timed Out');
 }
 
 class BadRequestException extends AppExceptions {
-  BadRequestException([String? message])
-      : super(message, 'Invalid Request');
+  BadRequestException([String? message]) : super(message, 'Invalid Request');
 }
 
 class UnauthorizedException extends AppExceptions {
   UnauthorizedException([String? message])
-      : super(message, 'Unauthorized Request');
+    : super(message, 'Unauthorized Request');
 }
 
 class InvalidInputException extends AppExceptions {
-  InvalidInputException([String? message])
-      : super(message, 'Invalid Input');
+  InvalidInputException([String? message]) : super(message, 'Invalid Input');
 }
 
 class ResourceNotFoundException extends AppExceptions {
   ResourceNotFoundException([String? message])
-      : super(message, 'Resource Not Found');
+    : super(message, 'Resource Not Found');
 }
 
 class ConflictException extends AppExceptions {
-  ConflictException([String? message])
-      : super(message, 'Resource Conflict');
+  ConflictException([String? message]) : super(message, 'Resource Conflict');
 }
 
 class ServerException extends AppExceptions {
-  ServerException([String? message])
-      : super(message, 'Internal Server Error');
+  ServerException([String? message]) : super(message, 'Internal Server Error');
+}
+
+class HighDemandException extends AppExceptions {
+  HighDemandException([String? message])
+    : super(
+        message ??
+            'AI servers are currently busy due to high demand. Please try again in a moment.',
+        'High Demand',
+      );
 }

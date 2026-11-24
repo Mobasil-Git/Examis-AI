@@ -1,17 +1,18 @@
 import 'dart:io';
+import 'package:examisai/view_models/assessment_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'universal_text_field.dart';
-import '../../view_models/assessment_view_model.dart';
 import '../../utils/responsive_ui.dart';
 
-class DiagramInputSection extends StatelessWidget {
+class DiagramInputSection extends ConsumerWidget {
   const DiagramInputSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<AssessmentViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assessmentProvider);
+    final notifier = ref.read(assessmentProvider.notifier);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -28,7 +29,11 @@ class DiagramInputSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.insert_photo_outlined, color: colorScheme.primary, size: 20),
+              Icon(
+                Icons.insert_photo_outlined,
+                color: colorScheme.primary,
+                size: 20,
+              ),
               SizedBox(width: context.widthPercent(0.02)),
               Text(
                 "Diagrams & Visuals",
@@ -65,12 +70,14 @@ class DiagramInputSection extends StatelessWidget {
           ),
           SizedBox(height: context.heightPercent(0.02)),
 
-          if (vm.diagramTextControllers.isEmpty)
+          if (state.diagramTextControllers.isEmpty)
             InkWell(
-              onTap: () => vm.addDiagramQuestion(),
+              onTap: () => notifier.addDiagramQuestion(),
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: context.heightPercent(0.03)),
+                padding: EdgeInsets.symmetric(
+                  vertical: context.heightPercent(0.03),
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withAlpha(10),
                   borderRadius: BorderRadius.circular(12),
@@ -81,7 +88,11 @@ class DiagramInputSection extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.add, color: colorScheme.primary.withAlpha(150), size: 32),
+                    Icon(
+                      Icons.add,
+                      color: colorScheme.primary.withAlpha(150),
+                      size: 32,
+                    ),
                     SizedBox(height: context.heightPercent(0.015)),
                     Text(
                       "No diagrams added yet.",
@@ -96,9 +107,9 @@ class DiagramInputSection extends StatelessWidget {
               ),
             )
           else ...[
-            ...vm.diagramTextControllers.asMap().entries.map((entry) {
+            ...state.diagramTextControllers.asMap().entries.map((entry) {
               final int index = entry.key;
-              final File? selectedImage = vm.diagramImages[index];
+              final File? selectedImage = state.diagramImages[index];
 
               return Padding(
                 padding: EdgeInsets.only(bottom: context.heightPercent(0.02)),
@@ -107,7 +118,9 @@ class DiagramInputSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withAlpha(15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: colorScheme.primary.withAlpha(40)),
+                    border: Border.all(
+                      color: colorScheme.primary.withAlpha(40),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,7 +131,7 @@ class DiagramInputSection extends StatelessWidget {
                           Expanded(
                             flex: 3,
                             child: UniversalTextField(
-                              controller: vm.diagramTextControllers[index],
+                              controller: state.diagramTextControllers[index],
                               labelText: "Question prompt",
                               hintText: "e.g., Label the diagram",
                             ),
@@ -127,7 +140,7 @@ class DiagramInputSection extends StatelessWidget {
                           Expanded(
                             flex: 1,
                             child: UniversalTextField(
-                              controller: vm.diagramMarksControllers[index],
+                              controller: state.diagramMarksControllers[index],
                               labelText: "Marks",
                               hintText: "5",
                               textAlign: TextAlign.center,
@@ -136,10 +149,16 @@ class DiagramInputSection extends StatelessWidget {
                           ),
                           SizedBox(width: context.widthPercent(0.01)),
                           Padding(
-                            padding: EdgeInsets.only(top: context.heightPercent(0.03)),
+                            padding: EdgeInsets.only(
+                              top: context.heightPercent(0.03),
+                            ),
                             child: IconButton(
-                              onPressed: () => vm.removeDiagramQuestion(index),
-                              icon: Icon(Icons.remove_circle_outline, color: colorScheme.error),
+                              onPressed: () =>
+                                  notifier.removeDiagramQuestion(index),
+                              icon: Icon(
+                                Icons.remove_circle_outline,
+                                color: colorScheme.error,
+                              ),
                               tooltip: "Remove Diagram",
                             ),
                           ),
@@ -149,36 +168,52 @@ class DiagramInputSection extends StatelessWidget {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => vm.pickDiagramImage(index, ImageSource.gallery),
+                            onTap: () => notifier.pickDiagramImage(
+                              index,
+                              ImageSource.gallery,
+                            ),
                             child: Container(
                               width: context.widthPercent(0.2),
                               height: context.widthPercent(0.2),
                               decoration: BoxDecoration(
                                 color: theme.scaffoldBackgroundColor,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: colorScheme.outline.withAlpha(50), width: 1.5),
+                                border: Border.all(
+                                  color: colorScheme.outline.withAlpha(50),
+                                  width: 1.5,
+                                ),
                               ),
                               child: selectedImage != null
                                   ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(selectedImage, fit: BoxFit.cover),
-                              )
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.file(
+                                        selectedImage,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
                                   : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_photo_alternate_outlined, color: colorScheme.onSurfaceVariant, size: 24),
-                                  SizedBox(height: context.heightPercent(0.005)),
-                                  Text(
-                                    "Upload",
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontFamily: 'Lato',
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.bold,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          color: colorScheme.onSurfaceVariant,
+                                          size: 24,
+                                        ),
+                                        SizedBox(
+                                          height: context.heightPercent(0.005),
+                                        ),
+                                        Text(
+                                          "Upload",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontFamily: 'Lato',
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                           SizedBox(width: context.widthPercent(0.04)),
@@ -202,7 +237,10 @@ class DiagramInputSection extends StatelessWidget {
                                       colorScheme,
                                       icon: Icons.photo_library,
                                       label: "Gallery",
-                                      onTap: () => vm.pickDiagramImage(index, ImageSource.gallery),
+                                      onTap: () => notifier.pickDiagramImage(
+                                        index,
+                                        ImageSource.gallery,
+                                      ),
                                     ),
                                     SizedBox(width: context.widthPercent(0.02)),
                                     _buildActionChip(
@@ -210,7 +248,10 @@ class DiagramInputSection extends StatelessWidget {
                                       colorScheme,
                                       icon: Icons.camera_alt,
                                       label: "Camera",
-                                      onTap: () => vm.pickDiagramImage(index, ImageSource.camera),
+                                      onTap: () => notifier.pickDiagramImage(
+                                        index,
+                                        ImageSource.camera,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -226,8 +267,12 @@ class DiagramInputSection extends StatelessWidget {
             }),
             SizedBox(height: context.heightPercent(0.005)),
             TextButton.icon(
-              onPressed: () => vm.addDiagramQuestion(),
-              icon: Icon(Icons.add_circle_outline, color: colorScheme.primary, size: 20),
+              onPressed: () => notifier.addDiagramQuestion(),
+              icon: Icon(
+                Icons.add_circle_outline,
+                color: colorScheme.primary,
+                size: 20,
+              ),
               label: Text(
                 "Add Another Diagram",
                 style: TextStyle(
@@ -243,12 +288,21 @@ class DiagramInputSection extends StatelessWidget {
     );
   }
 
-  Widget _buildActionChip(BuildContext context, ColorScheme colorScheme, {required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildActionChip(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.03), vertical: context.heightPercent(0.01)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.widthPercent(0.03),
+          vertical: context.heightPercent(0.01),
+        ),
         decoration: BoxDecoration(
           color: colorScheme.primary.withAlpha(20),
           borderRadius: BorderRadius.circular(8),

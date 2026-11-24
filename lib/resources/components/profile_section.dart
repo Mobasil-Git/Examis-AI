@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_picture_widget.dart';
-import '../../view_models/auth_view_model.dart';
-import '../../view_models/history_view_model.dart';
-import '../../view_models/template_view_model.dart';
+import '../../view_models/auth_provider.dart';
+import '../../view_models/history_provider.dart';
+import '../../view_models/template_provider.dart';
 import '../../utils/responsive_ui.dart';
 
-class ProfileSection extends StatelessWidget {
+class ProfileSection extends ConsumerWidget {
   const ProfileSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authVM = context.watch<AuthViewModel>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -41,7 +41,7 @@ class ProfileSection extends StatelessWidget {
             children: [
               ProfilePictureWidget(
                 userId: userId,
-                initialAvatarUrl: authVM.avatarUrl,
+                initialAvatarUrl: authState.avatarUrl,
                 radius: context.isMobile ? 22 : 28,
                 showEditBadge: false,
               ),
@@ -55,7 +55,7 @@ class ProfileSection extends StatelessWidget {
                 ),
               ),
               Text(
-                authVM.userName,
+                authState.userName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -68,25 +68,32 @@ class ProfileSection extends StatelessWidget {
               SizedBox(height: context.heightPercent(0.025)),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: context.widthPercent(0.02)),
-                child: Consumer2<HistoryViewModel, TemplateViewModel>(
-                  builder: (context, historyVM, templateVM, child) {
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final totalAssessments = ref.watch(
+                      historyProvider.select((s) => s.totalAssessments),
+                    );
+                    final totalTemplates = ref.watch(
+                      templateProvider.select((s) => s.totalTemplates),
+                    );
+
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildStatCard(
                           context,
                           title: "Exams",
-                          value: historyVM.totalAssessments.toString(),
+                          value: totalAssessments.toString(),
                           icon: Icons.description_outlined,
                           iconColor: Colors.blueAccent,
                           theme: theme,
                           isDarkMode: isDarkMode,
                         ),
-                        _buildStorageCard(context, authVM, theme, isDarkMode),
+                        _buildStorageCard(context, authState, theme, isDarkMode),
                         _buildStatCard(
                           context,
                           title: "Templates",
-                          value: templateVM.totalTemplates.toString(),
+                          value: totalTemplates.toString(),
                           icon: Icons.bookmark_border_rounded,
                           iconColor: Colors.greenAccent,
                           theme: theme,
@@ -157,16 +164,21 @@ class ProfileSection extends StatelessWidget {
     );
   }
 
-  Widget _buildStorageCard(BuildContext context, AuthViewModel authVM, ThemeData theme, bool isDarkMode) {
+  Widget _buildStorageCard(
+      BuildContext context,
+      AppAuthState authState,
+      ThemeData theme,
+      bool isDarkMode,
+      ) {
     double percentUsed = 0.0;
     Color barColor = Colors.greenAccent;
 
-    final usedMB = authVM.storageUsedBytes / (1024 * 1024);
-    final limitMB = authVM.storageLimitBytes / (1024 * 1024);
+    final usedMB = authState.storageUsedBytes / (1024 * 1024);
+    final limitMB = authState.storageLimitBytes / (1024 * 1024);
     final remainingMB = limitMB - usedMB;
 
-    if (authVM.storageLimitBytes > 0) {
-      percentUsed = (authVM.storageUsedBytes / authVM.storageLimitBytes).clamp(0.0, 1.0);
+    if (authState.storageLimitBytes > 0) {
+      percentUsed = (authState.storageUsedBytes / authState.storageLimitBytes).clamp(0.0, 1.0);
     }
 
     String displayValue = "${remainingMB.toStringAsFixed(1)} MB";
@@ -217,7 +229,7 @@ class ProfileSection extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
               fontFamily: 'Lato',
               fontSize: 11,
-              fontWeight: FontWeight.w600, 
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
